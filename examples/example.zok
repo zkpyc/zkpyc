@@ -1,0 +1,15 @@
+import "foo" as bar
+
+struct Foo {
+    field[2] foo
+    Bar bar
+}
+
+def main<P>(private field[Q] a) -> (bool[234 + 6]):
+    field a = 1
+    a[32 + x][55] = foo::<a, _>(y)
+    for field i in 0..3 do
+            assert(a == 1 + 2 + 3+ 4+ 5+ 6+ 6+ 7+ 8 + 4+ 5+ 3+ 4+ 2+ 3)
+    endfor
+    assert(a.member == 1)
+    return a
