@@ -730,7 +730,7 @@ impl<'a> PyGen<'a> {
                 format!(
                     "Incorrect visibility specifier used",
                 ),
-                &visibility.range()
+                &err.range()
             )
         }
     }
@@ -1654,7 +1654,7 @@ impl<'a> PyGen<'a> {
             ast::Stmt::Expr(e) => {
                 // If necessary we could also just escape it instead of returning Err
                 self.err(
-                    format!("Expressions are handled separately."),
+                    format!("Expressions must be used within respective statement."),
                     &e.range(),
                 )
             }

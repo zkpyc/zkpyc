@@ -1,4 +1,4 @@
-from zk_types.types import Private, Public, Array, field #zk_ignore
+from zk_types.types import Private, Array, field #zk_ignore
 from dataclasses import dataclass #zk_ignore
 
 @dataclass

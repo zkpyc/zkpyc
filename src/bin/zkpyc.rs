@@ -108,32 +108,13 @@ fn main() {
         }
     };
 
-    // this is for zokrates
-    // let inputs = front::zsharp::Inputs {
-    //     file: path_buf,
-    //     mode,
-    // };
 
-    // let cs = front::zsharp::ZSharpFE::gen(inputs);
-
-    // // this is for python
     let inputs = front::python::Inputs {
         file: path_buf,
         mode,
     };
 
     let cs = front::python::PythonFE::gen(inputs);
-
-
-    // this is for C
-    // let inputs = front::c_fork::Inputs {
-    //     file: path_buf,
-    //     mode,
-    //     sv_functions: options.circ.c.sv_functions,
-    //     assert_no_ub: options.circ.c.assert_no_ub,
-    // };
-
-    // let cs = front::c_fork::C::gen(inputs);
 
     // TEMPORARY DEBUG
     // println!("{:#?}", cs);
