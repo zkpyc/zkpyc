@@ -1,5 +1,5 @@
 from zk_types.types import Public, Array # zk_ignore
-from hashes.sha256.shaRound import main as shaRound
+from hashes.sha256.shaRound import shaRound
 
 # Initial values, FIPS 180-3, section 5.3.3
 # https://csrc.nist.gov/csrc/media/publications/fips/180/3/archive/2008-10-31/documents/fips180-3_final.pdf
@@ -11,7 +11,7 @@ IV: Array[int, 8] = [
 # A function that takes 1 u32[8] array as inputs, concatenates them,
 # and returns their sha256 compression as a u32[8].
 # Note: no padding is applied
-def main(a: Array[Array[int, 16], 1], N: Public[int]) -> Array[int, 8]:
+def sha256(a: Array[Array[int, 16], 1], N: Public[int]) -> Array[int, 8]:
 	current: Array[int, 8] = IV
 
 	for i in range(0, N):

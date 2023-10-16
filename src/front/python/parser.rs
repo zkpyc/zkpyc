@@ -1,6 +1,6 @@
 //! Parsing and recursively loading Python
 
-use rustpython_parser::{parse, ast, Mode, ParseError};
+use rustpython_parser::{parse, ast::{self, text_size::TextRange, TextSize}, Mode, ParseError};
 use circ::circify::includer::Loader;
 
 use log::debug;
@@ -149,14 +149,28 @@ impl <'a> Loader for &'a PyLoad {
     }
 }
 
-pub fn filter_out_zk_ignore(s: &mut String) {
+pub fn filter_out_zk_ignore(s: &mut String) -> Vec<TextRange> {
     let re = Regex::new(r"(?i)#\s*zk_ignore\s*$").expect("Regex compilation failed");
     let lines: Vec<&str> = s.lines().collect(); // Split the string into lines
 
-    // Filter out lines that match the pattern
+    let mut filtered_ranges: Vec<TextRange> = Vec::new();
+    let mut current_line = TextSize::from(0);
+
+    // Filter out lines that match the pattern and keep track of their ranges
     let filtered_lines: Vec<&str> = lines
         .into_iter()
-        .filter(|line| !re.is_match(line))
+        .enumerate()
+        .filter(|(_, line)| {
+            let is_filtered = !re.is_match(line);
+            if !is_filtered {
+                let line_length = TextSize::of(*line);
+                filtered_ranges.push(TextRange::new(current_line, current_line + line_length));
+            }
+            // Add 1 to account for newline character
+            current_line += TextSize::of(*line) + TextSize::from(1);
+            is_filtered
+        })
+        .map(|(_, line)| line)
         .collect();
 
     // Join the filtered lines back into a new string
@@ -165,4 +179,7 @@ pub fn filter_out_zk_ignore(s: &mut String) {
     // Update the original string
     s.clear();
     s.push_str(&new_string);
+
+    // Return the vector of TextRanges for filtered lines
+    filtered_ranges
 }

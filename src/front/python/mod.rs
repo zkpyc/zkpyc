@@ -10,7 +10,7 @@ use circ::ir::proof::ConstraintMetadata;
 use circ::cfg::cfg;
 use circ::ir::term::*;
 use circ::term;
-use rustpython_parser::ast::{Ranged, text_size::TextRange};
+use rustpython_parser::ast::{Ranged, text_size::TextRange, TextSize};
 use log::{debug, trace};
 use parser::filter_out_zk_ignore;
 
@@ -92,6 +92,7 @@ struct PyGen<'a> {
     mode: Mode,
     cvars_stack: RefCell<Vec<Vec<HashMap<String, PyTerm>>>>,
     crets_stack: RefCell<Vec<PyTerm>>,
+    curr_func: RefCell<String>,
     lhs_ty: RefCell<Option<Ty>>,
     ret_ty_stack: RefCell<Vec<Ty>>,
     gc_depth_estimate: Cell<usize>,
@@ -162,6 +163,7 @@ impl<'a> PyGen<'a> {
             mode,
             cvars_stack: Default::default(),
             crets_stack: Default::default(),
+            curr_func: RefCell::new(String::from("<module>")),
             lhs_ty: Default::default(),
             ret_ty_stack: Default::default(),
             gc_depth_estimate: Cell::new(2 * GC_INC),
@@ -184,8 +186,11 @@ impl<'a> PyGen<'a> {
 
     // For now just print stmt range, later we can improve it
     fn err<E: Display>(&self, e: E, s: &TextRange) -> ! {
-        println!("Compilation Error -- Traceback:");
-        println!("\tFile {}, offset range {:?}, in", self.cur_path().canonicalize().unwrap().display(), s);
+        let range = range_before_filter(s, self.cur_path());
+        let line = line_from_range(range, self.cur_path());
+        
+        println!("ZKPyC Compilation Error -- Traceback:");
+        println!("\tFile {}, line {:?}, in {}", self.cur_path().canonicalize().unwrap().display(), line, self.curr_func.borrow());
         println!("{}", range_to_string(s, self.cur_path()));
         println!("Error: {e}");
         std::process::exit(1)
@@ -464,6 +469,9 @@ impl<'a> PyGen<'a> {
             .get(&f_name)
             .ok_or_else(|| format!("No function '{}' attempting fn call", &f_name))?;
 
+        let prev_func_call = self.curr_func.clone();
+        self.curr_func.borrow_mut().replace_range(.., &f_name);
+
         let arg_tys = args.iter().map(|arg| arg.type_().clone());
 
         if self.stdlib.is_embed(&f_path) {
@@ -533,6 +541,7 @@ impl<'a> PyGen<'a> {
                 }
             }
 
+            self.curr_func.borrow_mut().replace_range(.., prev_func_call.borrow().as_str());
             self.maybe_garbage_collect();
             Ok(ret)
         }
@@ -578,6 +587,8 @@ impl<'a> PyGen<'a> {
         debug!("Entry: {}", n);
         // find the entry function
         let (f_file, f_name) = self.deref_import(n);
+        let prev_func_call = self.curr_func.clone();
+        self.curr_func.borrow_mut().replace_range(.., &f_name);
         let f = self
             .functions
             .get(&f_file)
@@ -681,6 +692,7 @@ impl<'a> PyGen<'a> {
                 }
             }
         }
+        self.curr_func.borrow_mut().replace_range(.., prev_func_call.borrow().as_str());
     }
 
     // might need to change to &Option<ast::Expr>
@@ -718,7 +730,7 @@ impl<'a> PyGen<'a> {
                 format!(
                     "Incorrect visibility specifier used",
                 ),
-                &err.range()
+                &visibility.range()
             )
         }
     }
@@ -1299,7 +1311,7 @@ impl<'a> PyGen<'a> {
             }
         }
         .and_then(|res| if IS_CNST { const_val(res) } else { Ok(res) })
-        .map_err(|err| format!("{}; offset range: {:?}, details:\n{:?}", err, e.range(), range_to_string(&e.range(), self.cur_path())))
+        .map_err(|err| format!("{err}"))
     }
 
     fn canon_class(&self, id: &str) -> Result<String, String> {
@@ -1672,7 +1684,7 @@ impl<'a> PyGen<'a> {
                 )
             }
         }
-        .map_err(|err| format!("{}; offset range: {:?}, details:\n{:?}", err, &s.range(), range_to_string(&s.range(), self.cur_path())))
+        .map_err(|err| format!("{err}"))
     }
 
     fn set_lhs_ty_defn<const IS_CNST: bool>(
@@ -2624,6 +2636,35 @@ fn range_to_string(s: &TextRange, path: PathBuf) -> String {
         } else {
             panic!("TextRange is out of bounds.")
         }
+    } else {
+        panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
+    }
+}
+
+fn range_before_filter(s: &TextRange, path: PathBuf) -> TextRange {
+    if let Ok(file_contents) = fs::read_to_string(&path) {
+        let mut corrected_contents = file_contents.clone();
+        let filtered_ranges = filter_out_zk_ignore(&mut corrected_contents);
+        
+        // Sum up all TextRange values in filtered_ranges up to s
+        let offset: TextSize = filtered_ranges
+            .iter()
+            .take_while(|&range| range.end() <= s.start())
+            .map(|range| range.len() + TextSize::from(1))
+            .sum();
+
+        // Compute the updated s
+        s + offset
+    } else {
+        panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
+    }
+}
+
+fn line_from_range(range: TextRange, path: PathBuf) -> usize {
+    if let Ok(file_contents) = fs::read_to_string(&path) {
+        let start_offset = range.start();
+        let text_before_range = &file_contents[0..start_offset.into()];
+        text_before_range.chars().filter(|&c| c == '\n').count() + 1
     } else {
         panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
     }

@@ -32,5 +32,5 @@ function pf_test {
     rm -rf P V pi
 }
 
-r1cs_test examples/_3_plus_int.py
-pf_test examples/_3_plus_int.py
+r1cs_test examples/test_sha256.py
+pf_test examples/test_sha256.py

@@ -43,7 +43,7 @@ def temp2(a: Public[int], b: Public[int], c: Public[int]) -> int:
 
 # A function that computes one round of the SHA256 compression function given an input and the current value of the hash
 # this is used by other components however many times needed
-def main(input: Public[Array[int, 16]], current: Public[Array[int, 8]]) -> Array[int, 8]:
+def shaRound(input: Public[Array[int, 16]], current: Public[Array[int, 8]]) -> Array[int, 8]:
     h0: int = current[0]
     h1: int = current[1]
     h2: int = current[2]
