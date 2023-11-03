@@ -13,15 +13,15 @@ K: Array[int, 64] = [
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ]
 
-def rotr32(x: Public[int], N: Public[int]) -> int:
+def rotr32(x: int, N: int) -> int:
     return (x >> N) | (x << (32 - N)) & 0xffffffff
 
-def extend(w: Public[Array[int, 64]], i: Public[int]) -> int:
+def extend(w: Array[int, 64], i: int) -> int:
     s0: int = rotr32(w[i-15], 7) ^ rotr32(w[i-15], 18) ^ (w[i-15] >> 3) & 0xffffffff
     s1: int = rotr32(w[i-2], 17) ^ rotr32(w[i-2], 19) ^ (w[i-2] >> 10) & 0xffffffff
     return w[i-16] + s0 + w[i-7] + s1 & 0xffffffff
 
-def temp1(e: Public[int], f: Public[int], g: Public[int], h: Public[int], k: Public[int], w: Public[int]) -> int:
+def temp1(e: int, f: int, g: int, h: int, k: int, w: int) -> int:
     # ch := (e and f) xor ((not e) and g)
     ch: int = (e & f) ^ ((~e & 0xffffffff) & g)
 
@@ -31,7 +31,7 @@ def temp1(e: Public[int], f: Public[int], g: Public[int], h: Public[int], k: Pub
     #temp1 := h + S1 + ch + k + w
     return (h + S1 + ch + k + w) & 0xffffffff
 
-def temp2(a: Public[int], b: Public[int], c: Public[int]) -> int:
+def temp2(a: int, b: int, c: int) -> int:
     # maj := (a and b) xor (a and c) xor (b and c)
     maj: int = (a & b) ^ (a & c) ^ (b & c)
 
@@ -43,7 +43,7 @@ def temp2(a: Public[int], b: Public[int], c: Public[int]) -> int:
 
 # A function that computes one round of the SHA256 compression function given an input and the current value of the hash
 # this is used by other components however many times needed
-def shaRound(input: Public[Array[int, 16]], current: Public[Array[int, 8]]) -> Array[int, 8]:
+def shaRound(input: Array[int, 16], current: Array[int, 8]) -> Array[int, 8]:
     h0: int = current[0]
     h1: int = current[1]
     h2: int = current[2]

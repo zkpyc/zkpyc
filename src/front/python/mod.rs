@@ -441,14 +441,29 @@ impl<'a> PyGen<'a> {
         self.file_stack.borrow().len()
     }
 
-    fn function_ret(&self, s: &ast::StmtFunctionDef) -> Vec<ast::Expr> {
-        if let ast::Expr::Tuple(expr_tuple) = *s.returns.clone().unwrap() {
-            expr_tuple.elts
-        } else {
-            vec!(*s.returns.clone().unwrap())
+    fn function_ret_type(&self, s: &ast::StmtFunctionDef) -> Vec<ast::Expr> {
+        match &s.returns {
+            Some(s) => if let ast::Expr::Tuple(expr_tuple) = s.as_ref() {
+                expr_tuple.elts.clone()
+            } else {
+                vec!(*s.clone())
+            }
+            None => panic!("Missing function return type.")
         }
     }
  
+    fn function_param_type(&self, e: &ast::Arg) -> Result<ast::Expr, String> {
+        match &e.annotation {
+            Some(s) => Ok(*s.clone()),
+            None => self.err(
+                format!(
+                    "Missing argument type.",
+                ),
+                &e.range()
+            ),
+        }
+    }
+
     fn function_call_impl_<const IS_CNST: bool>(
         &self,
         args: Vec<PyTerm>,
@@ -477,7 +492,7 @@ impl<'a> PyGen<'a> {
         if self.stdlib.is_embed(&f_path) {
             Self::builtin_call(&f_name, args)
         } else {
-            assert!(self.function_ret(&f).len() <= 1);
+            assert!(self.function_ret_type(&f).len() <= 1);
             if f.args.args.len() != args.len() {
                 return Err(format!(
                     "Wrong number of arguments calling {} (got {}, expected {})",
@@ -492,7 +507,7 @@ impl<'a> PyGen<'a> {
             self.ret_ty_stack_push::<IS_CNST>(&f)?;
 
             // multi-return unimplemented
-            let ret_ty = self.function_ret(&f)
+            let ret_ty = self.function_ret_type(&f)
                 .first()
                 .map(|r| self.type_impl_::<IS_CNST>(r))
                 .transpose()?;
@@ -505,7 +520,7 @@ impl<'a> PyGen<'a> {
             };
 
             for (p, a) in f.args.args.into_iter().zip(args) {
-                let ty = self.type_impl_::<IS_CNST>(&p.def.annotation.unwrap())?;
+                let ty = self.type_impl_::<IS_CNST>(&self.function_param_type(&p.def)?)?;
                 if IS_CNST {
                     self.cvar_declare_init(p.def.arg.to_string(), &ty, a)?;
                 } else {
@@ -597,16 +612,16 @@ impl<'a> PyGen<'a> {
             .unwrap_or_else(|| panic!("No function '{}'", &f_name))
             .clone();
         // tuple returns not supported
-        assert!(self.function_ret(&f).len() <= 1);
+        assert!(self.function_ret_type(&f).len() <= 1);
         // get return type
-        let ret_ty = self.function_ret(&f).first().map(|r| self.type_(r));
+        let ret_ty = self.function_ret_type(&f).first().map(|r| self.type_(r));
         // set up stack frame for entry function
         self.circ_enter_fn(n.to_owned(), ret_ty.clone());
         let mut persistent_arrays: Vec<String> = Vec::new();
         for p in f.args.args.iter() {
-            let ty = self.type_(p.def.annotation.as_ref().unwrap());
+            let ty = self.type_(&self.function_param_type(&p.def).unwrap_or_else(|a| panic!("{a}")));
             debug!("Entry param: {}: {}", p.def.arg.as_str(), ty);
-            let vis = self.interpret_visibility(p.def.annotation.as_ref().unwrap());
+            let vis = self.interpret_visibility(&p.def);
             if let PyVis::Committed = &vis {
                 persistent_arrays.push(p.def.arg.to_string());
             }
@@ -695,9 +710,8 @@ impl<'a> PyGen<'a> {
         self.curr_func.borrow_mut().replace_range(.., prev_func_call.borrow().as_str());
     }
 
-    // might need to change to &Option<ast::Expr>
-    fn interpret_visibility(&self, visibility: &ast::Expr) -> PyVis {
-        match visibility {
+    fn interpret_visibility(&self, arg: &ast::Arg) -> PyVis {
+        match *arg.annotation.clone().unwrap() {
             ast::Expr::Subscript(e) => if let ast::Expr::Name(n) = *e.clone().value {
                 // in ZoKrates it assumes None is public, however
                 // we have to be strict since we match against an
@@ -713,7 +727,7 @@ impl<'a> PyGen<'a> {
                         format!(
                             "Incorrect visibility specifier used",
                         ),
-                        &n.range()
+                        &arg.range()
                     );
                 }
             } else {
@@ -722,15 +736,15 @@ impl<'a> PyGen<'a> {
                     format!(
                         "Incorrect visibility specifier used",
                     ),
-                    &e.range()
+                    &arg.range()
                 );
             }
             // if not otherwise specified, return error
-            err => self.err(
+            _ => self.err(
                 format!(
                     "Incorrect visibility specifier used",
                 ),
-                &err.range()
+                &arg.range()
             )
         }
     }
@@ -1070,14 +1084,14 @@ impl<'a> PyGen<'a> {
                 if f_name == "int" {
                     // Unclean explicit type casting, refactor later.
                     if args[0].ty == Ty::Field && args.len() == 1 {
-                        let v = args[0].term.as_pf_opt().unwrap().i();
-                        Ok(uint_lit(v.to_u32_wrapping(), 32))
+                        uint_from_bits(field_to_bits(args[0].clone(), 32)?)
                     } else if args[0].ty == Ty::Uint(32) && args.len() == 1 {
-                        let v = args[0].term.as_bv_opt().unwrap().uint();
-                        Ok(uint_lit(v.to_u32_wrapping(), 32))
+                        Ok(args[0].clone())
                     } else if args[0].ty == Ty::Bool && args.len() == 1 {
-                        let v = u32::from(args[0].term.as_bool_opt().unwrap());
-                        Ok(uint_lit(v, 32))
+                        self.err(
+                            format!("Type casting from {} into {} is not supported", Ty::Bool, Ty::Uint(32)),
+                            &p.range(),
+                        )
                     } else if args.len() != 1 {
                         self.err(
                             format!("Int takes at most 1 argument."),
@@ -1148,16 +1162,11 @@ impl<'a> PyGen<'a> {
                 } else if f_name == "bool" {
                     // Unclean explicit type casting, refactor this later.
                     if args[0].ty == Ty::Bool && args.len() == 1 {
-                        let v = args[0].term.as_bool_opt().unwrap();
-                        Ok(py_bool_lit(v))
+                        Ok(args[0].clone())
                     } else if args[0].ty == Ty::Uint(32) && args.len() == 1 {
-                        let v = args[0].term.as_bv_opt().unwrap().uint();
-                        // interpret all but zero as true
-                        Ok(py_bool_lit(v.to_u32_wrapping() != 0))
+                        neq(args[0].clone(), uint_lit(0, 32))
                     } else if args[0].ty == Ty::Field && args.len() == 1 {
-                        let v = args[0].term.as_pf_opt().unwrap().i();
-                        // interpret all but zero as true
-                        Ok(py_bool_lit(v.to_u32_wrapping() != 0))
+                        neq(args[0].clone(), field_lit(0))
                     } else if args.len() != 1 {
                         self.err(
                             format!("Bool takes at most 1 argument."),
@@ -1177,14 +1186,18 @@ impl<'a> PyGen<'a> {
                 } else if f_name == "field" {
                     // Unclean explicit type casting, refactor later.
                     if args[0].ty == Ty::Uint(32) && args.len() == 1 {
-                        let v = args[0].term.as_bv_opt().unwrap().uint();
-                        Ok(field_lit(v))
+                        uint_to_field(args[0].clone())
+                        // let v = args[0].term.as_bv_opt().unwrap().uint();
+                        // Ok(field_lit(v))
                     } else if args[0].ty == Ty::Field && args.len() == 1 {
-                        let v = args[0].term.as_pf_opt().unwrap().i();
-                        Ok(field_lit(v))
+                        Ok(args[0].clone())
+                        // let v = args[0].term.as_pf_opt().unwrap().i();
+                        // Ok(field_lit(v))
                     } else if args[0].ty == Ty::Bool && args.len() == 1 {
-                        let v = u32::from(args[0].term.as_bool_opt().unwrap());
-                        Ok(field_lit(v))
+                        self.err(
+                            format!("Type casting from {} into {} is not supported", Ty::Bool, Ty::Field),
+                            &p.range(),
+                        )
                     } else if args.len() != 1 {
                         self.err(
                             format!("Field takes at most 1 argument."),
@@ -2314,13 +2327,13 @@ impl<'a> PyGen<'a> {
                     ast::Stmt::FunctionDef(f) => {
                         debug!("processing decl: fn {} in {}", f.name.as_str(), p.display());
                         let f_ast = f.clone();
-                        if self.function_ret(&f_ast).len() != 1 {
+                        if self.function_ret_type(&f_ast).len() != 1 {
                             // functions MUST return exactly 1 value
                             self.err(
                                 format!(
                                     "Functions must return exactly 1 value; {} returns {}",
                                     &f_ast.name.as_str(),
-                                    self.function_ret(&f_ast).len(),
+                                    self.function_ret_type(&f_ast).len(),
                                 ),
                                 &f.range(),
                             );

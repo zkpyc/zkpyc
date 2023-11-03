@@ -6,11 +6,12 @@ use circ_opt::{CircOpt,
     clap::Args,
 };
 use circ_opt::clap;
+use zkpyc::export::setup::ZkInterface;
 use std::path::{Path, PathBuf};
 use zkpyc::front;
 use crate::front::{FrontEnd, Mode};
 #[cfg(feature = "r1cs")]
-use circ::target::r1cs::{opt::reduce_linearities, trans::to_r1cs};
+use zkpyc::utilities::{trans::to_r1cs, opt::reduce_linearities};
 use circ::ir::term::{Node, Op, BV_LSHR, BV_SHL};
 use circ::ir::{
     opt::{opt, Opt},
@@ -30,8 +31,9 @@ use bellman::{
 };
 #[cfg(feature = "bellman")]
 use bls12_381::{Bls12, Scalar};
+// use curve25519_dalek::scalar::Scalar;
 #[cfg(feature = "bellman")]
-use circ::target::r1cs::{
+use zkpyc::utilities::{
     bellman::Bellman,
     mirage::Mirage,
     proof::{CommitProofSystem, ProofSystem},
@@ -67,6 +69,7 @@ enum ProofAction {
 enum ProofImpl {
     Groth16,
     Mirage,
+    ZkInterface,
 }
 
 #[derive(Debug, Args)]
@@ -195,16 +198,24 @@ fn main() {
             trace!("IR: {}", circ::ir::term::text::serialize_computation(cs));
             let mut r1cs = to_r1cs(cs, cfg());
 
+            // println!("R1CS");
+            // println!("{:#?}", &r1cs);
+
             println!("Pre-opt R1cs size: {}", r1cs.constraints().len());
             r1cs = reduce_linearities(r1cs, cfg());
 
             // TEMPORARY DEBUG
-            // println!("{:?}", &r1cs);
+            // println!("{:#?}", &r1cs);
 
             println!("Final R1cs size: {}", r1cs.constraints().len());
             let (prover_data, verifier_data) = r1cs.finalize(cs);
+            
+            // println!("R1CS");
             // println!("{:#?}", &prover_data);
+
+            // println!("Verifier Data");
             // println!("{:#?}", &verifier_data);
+
             match action {
                 ProofAction::Count => (),
                 #[cfg(feature = "bellman")]
@@ -219,6 +230,13 @@ fn main() {
                         )
                         .unwrap(),
                         ProofImpl::Mirage => Mirage::<Bls12>::setup_fs(
+                            prover_data,
+                            verifier_data,
+                            prover_key,
+                            verifier_key,
+                        )
+                        .unwrap(),
+                        ProofImpl::ZkInterface => ZkInterface::setup_fs(
                             prover_data,
                             verifier_data,
                             prover_key,
@@ -241,6 +259,7 @@ fn main() {
                             verifier_key,
                         )
                         .unwrap(),
+                        ProofImpl::ZkInterface => todo!(),
                     };
                 }
                 #[cfg(not(feature = "bellman"))]
