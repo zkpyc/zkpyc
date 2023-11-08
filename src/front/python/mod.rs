@@ -10,6 +10,8 @@ use circ::ir::proof::ConstraintMetadata;
 use circ::cfg::cfg;
 use circ::ir::term::*;
 use circ::term;
+use rug::Integer;
+use rustpython_parser::ast::bigint::BigInt;
 use rustpython_parser::ast::{Ranged, text_size::TextRange, TextSize};
 use log::{debug, trace};
 use parser::filter_out_zk_ignore;
@@ -119,6 +121,11 @@ impl<'a> Drop for PyGen<'a> {
 enum PyTarget {
     Member(String),
     Idx(PyTerm),
+}
+
+enum Literal {
+    PyLiteral(ast::ExprConstant),
+    Field(String, TextRange),
 }
 
 fn loc_store(class_: PyTerm, loc: &[PyTarget], val: PyTerm) -> Result<PyTerm, String> {
@@ -236,11 +243,10 @@ impl<'a> PyGen<'a> {
                     uint_to_field(args.pop().unwrap())
                 }
             }
-            // There is a chance that I am doing this incorrectly
             "unpack" => {
-                if args.len() != 1 {
+                if args.len() != 2 {
                     Err(format!(
-                        "Got {} args to EMBED/unpack, expected 1",
+                        "Got {} args to EMBED/unpack, expected 2",
                         args.len()
                     ))
                 } else {
@@ -355,18 +361,74 @@ impl<'a> PyGen<'a> {
         }
     }
 
-    fn literal_(&self, e: &ast::ExprConstant) -> Result<PyTerm, String> {
-        match &e.value {
-            // for now truncate bigint to u32 (select first u32 digit)
-            // in future maybe handle differently
-            ast::Constant::Int(v) => {
-                let v_trunc  = v.to_u32_digits().1.into_iter().next().unwrap_or(0);
-                Ok(uint_lit(v_trunc, 32))
+    fn literal_(&self, e: &Literal) -> Result<PyTerm, String> {
+        match &e {
+            Literal::PyLiteral(c) => match &c.value {
+                ast::Constant::None => {
+                    self.err(
+                        format!(
+                            "There is no support yet for None literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Bool(v) => Ok(py_bool_lit(*v)),
+                ast::Constant::Str(_) => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Str literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Bytes(_) => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Bytes literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Int(v) => {
+                    let v_trunc  = v.to_u32_digits().1.into_iter().next().unwrap_or(0);
+                    Ok(uint_lit(v_trunc, 32))
+                }
+                ast::Constant::Tuple(_) => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Tuple literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Float(_) => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Float literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Complex { real, imag } => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Complex literals.",
+                        ),
+                        &c.range()
+                    )
+                }
+                ast::Constant::Ellipsis => {
+                    self.err(
+                        format!(
+                            "There is no support yet for Ellipsis literals.",
+                        ),
+                        &c.range()
+                    )
+                }
             }
-            ast::Constant::Bool(v) => Ok(py_bool_lit(*v)),
-            _ => Err("Could not infer literal type.".to_string()),
+            Literal::Field(val, range) => Ok(field_lit(Integer::from_str_radix(val, 10).unwrap())),
         }
-        .map_err(|err| format!("{}; offset range: {:?}, details:\n{:?}", err, e.range(), range_to_string(&e.range(), self.cur_path())))
+        .map_err(|err: String| format!("{err}"))
     }
 
     fn unary_op(&self, o: &ast::UnaryOp) -> fn(PyTerm) -> Result<PyTerm, String> {
@@ -1064,10 +1126,26 @@ impl<'a> PyGen<'a> {
                         &p.range(),
                     )
                 }
+                // This is ugly but necessary for now:
+                // Since fields are not natively supported, we both check if f_name == "field"
+                // and if the argument is ast::Expr::Constant. We do this instead of typecasting from
+                // int literal to avoid wrapping around.
                 let args = p
                     .args
                     .iter()
-                    .map(|e| self.expr_impl_::<IS_CNST>(e))
+                    .map(|e| match e {
+                        ast::Expr::Constant(c) if f_name == "field" => {
+                            let val = match c.value.as_int() {
+                                Some(i) => i.to_string(),
+                                None => self.err(
+                                    format!("Constant expected inside of field literal declaration."),
+                                    &c.range(),
+                                ),
+                            };
+                            self.literal_(&Literal::Field(val, c.range()))
+                        }
+                        _ => self.expr_impl_::<IS_CNST>(e),
+                    })
                     .collect::<Result<Vec<_>,_>>()?;
                 let kwargs = p
                     .keywords
@@ -1088,10 +1166,7 @@ impl<'a> PyGen<'a> {
                     } else if args[0].ty == Ty::Uint(32) && args.len() == 1 {
                         Ok(args[0].clone())
                     } else if args[0].ty == Ty::Bool && args.len() == 1 {
-                        self.err(
-                            format!("Type casting from {} into {} is not supported", Ty::Bool, Ty::Uint(32)),
-                            &p.range(),
-                        )
+                        uint_from_bool(args[0].clone(), 32)
                     } else if args.len() != 1 {
                         self.err(
                             format!("Int takes at most 1 argument."),
@@ -1103,7 +1178,6 @@ impl<'a> PyGen<'a> {
                             &p.range(),
                         )
                     }
-
                 } else if f_name == "float" {
                     self.err(
                         format!("Floats are not supported yet."),
@@ -1187,17 +1261,10 @@ impl<'a> PyGen<'a> {
                     // Unclean explicit type casting, refactor later.
                     if args[0].ty == Ty::Uint(32) && args.len() == 1 {
                         uint_to_field(args[0].clone())
-                        // let v = args[0].term.as_bv_opt().unwrap().uint();
-                        // Ok(field_lit(v))
                     } else if args[0].ty == Ty::Field && args.len() == 1 {
                         Ok(args[0].clone())
-                        // let v = args[0].term.as_pf_opt().unwrap().i();
-                        // Ok(field_lit(v))
                     } else if args[0].ty == Ty::Bool && args.len() == 1 {
-                        self.err(
-                            format!("Type casting from {} into {} is not supported", Ty::Bool, Ty::Field),
-                            &p.range(),
-                        )
+                        uint_to_field(uint_from_bool(args[0].clone(), 32)?)
                     } else if args.len() != 1 {
                         self.err(
                             format!("Field takes at most 1 argument."),
@@ -1235,7 +1302,7 @@ impl<'a> PyGen<'a> {
                     &js.range(),
                 )
             }
-            ast::Expr::Constant(c) => self.literal_(c),
+            ast::Expr::Constant(c) => self.literal_(&Literal::PyLiteral(c.clone())),
             ast::Expr::Attribute(a) => {
                 match a.value.as_ref() {
                     ast::Expr::Attribute(aa) => {
@@ -2023,7 +2090,7 @@ impl<'a> PyGen<'a> {
             debug!("Type: {:?}", t);
         }
 
-        // This clusterf*** could definitely be refactored.
+        // This should seriously be refactored at some point.
         match t {
             ast::Expr::Subscript(s) => {
                 let ast::Expr::Name(n) = s.value.as_ref() else {
@@ -2327,17 +2394,23 @@ impl<'a> PyGen<'a> {
                     ast::Stmt::FunctionDef(f) => {
                         debug!("processing decl: fn {} in {}", f.name.as_str(), p.display());
                         let f_ast = f.clone();
-                        if self.function_ret_type(&f_ast).len() != 1 {
-                            // functions MUST return exactly 1 value
-                            self.err(
-                                format!(
-                                    "Functions must return exactly 1 value; {} returns {}",
-                                    &f_ast.name.as_str(),
-                                    self.function_ret_type(&f_ast).len(),
-                                ),
-                                &f.range(),
-                            );
+
+                        // Do not check return type of embedded functions
+                        let (f_path, _) = self.deref_import(f.name.as_str());
+                        if !self.stdlib.is_embed(&f_path) {
+                            if self.function_ret_type(&f_ast).len() != 1 {
+                                // functions MUST return exactly 1 value
+                                self.err(
+                                    format!(
+                                        "Functions must return exactly 1 value; {} returns {}",
+                                        &f_ast.name.as_str(),
+                                        self.function_ret_type(&f_ast).len(),
+                                    ),
+                                    &f.range(),
+                                );
+                            }
                         }
+
                         if self
                             .functions
                             .get_mut(self.file_stack.borrow().last().unwrap())

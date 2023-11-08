@@ -74,6 +74,8 @@ fn prepare_prover_statements<F: PrimeField>(opts: &Options) {
         public_inputs_arr,
         private_inputs_arr,
     ) = export::prepare_generate_proof::<F>(&pd, witness.clone());
+    // println!("{:#?}", public_inputs_arr);
+    // println!("{:#?}", private_inputs_arr);
     let first_local_id = public_inputs_arr.len() as u64;
     let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
     export::write_circuit::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), false);

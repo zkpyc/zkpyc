@@ -1,0 +1,22 @@
+(set_default_modulus 21888242871839275222246405745257275088548364400416034343698204186575808495617
+(let (
+    (inputs.0 #x00000001)
+    (inputs.1 #x00000002)
+    (inputs.2 #x00000003)
+    (inputs.3 #x00000004)
+    (inputs.4 #x00000005)
+    (inputs.5 #x00000006)
+    (inputs.6 #x00000007)
+    (inputs.7 #x00000008)
+    (inputs.8 #x00000009)
+    (inputs.9 #x0000000a)
+    (inputs.10 #x0000000b)
+    (inputs.11 #x0000000c)
+    (inputs.12 #x0000000d)
+    (inputs.13 #x0000000e)
+    (inputs.14 #x0000000f)
+    (inputs.15 #x00000010)
+)
+    false
+)
+)

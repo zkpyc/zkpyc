@@ -26,6 +26,8 @@ pub mod bn256 {
     pub struct Bn256([u64; 4]);
 }
 
+// Ristretto255 has scalar field 7237005577332262213973186563042994240857116359379907606001950938285454250989
+
 pub trait PrimeField {
     type Repr: Copy + Default + Send + Sync + 'static + AsRef<[u8]> + AsMut<[u8]>;
 

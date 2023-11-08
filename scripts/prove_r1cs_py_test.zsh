@@ -44,7 +44,12 @@ function pf_test {
         $ZK_BIN --field-custom-modulus $custom_field --inputs $ex_name.pin --action prove --proof-impl $implementation
         $ZK_BIN --field-custom-modulus $custom_field --inputs $ex_name.vin --action verify --proof-impl $implementation
     fi
-    # rm -rf P V pi
+    if [ "$implementation" = "groth16" ]
+    then
+        rm -rf P V pi
+    else
+        rm -rf P V
+    fi
 }
 
 # Test both r1cs generation and prove workflow
@@ -56,7 +61,7 @@ function r1cs_pf_test {
     pf_test $ex_name $implementation $custom_field
 }
 
-r1cs_pf_test examples/_3_plus_int.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
+# r1cs_pf_test examples/_3_plus_int.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
 # r1cs_pf_test examples/arr_cls_arr_cls.py zk-interface
 # r1cs_pf_test examples/arr_cpy.py zk-interface
 # r1cs_pf_test examples/assert.py zk-interface
@@ -68,8 +73,13 @@ r1cs_pf_test examples/_3_plus_int.py zk-interface 723700557733226221397318656304
 # r1cs_pf_test examples/mm.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
 # r1cs_pf_test examples/mul.py zk-interface
 # r1cs_pf_test examples/sha_temp1.py zk-interface
-# r1cs_pf_test examples/test_sha256.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
+# r1cs_pf_test examples/test_sha256.py
 # r1cs_pf_test examples/plus_field.py zk-interface
 # r1cs_pf_test examples/qeval.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
 # r1cs_pf_test examples/zkinterface.py zk-interface
-# r1cs_pf_test examples/zkinterface-bullet.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
+r1cs_pf_test examples/test_pedersen.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/unpack.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/lookup_window.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/to_bits.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/div.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/edwardsAdd.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617

@@ -854,6 +854,27 @@ pub fn uint_to_bits(u: PyTerm) -> Result<PyTerm, String> {
     }
 }
 
+pub fn uint_from_bool(u: PyTerm, size: usize) -> Result<PyTerm, String> {    
+    match &u.ty {
+        Ty::Bool => {
+            Ok(PyTerm::new(
+                Ty::Uint(size),
+                term(
+                    Op::BvConcat,
+                    (0..size)
+                        .map(|i| if i == size-1 {
+                                term![Op::BoolToBv; u.term.clone()]
+                            } else {
+                                bv_lit(0, 1)
+                            })
+                        .collect(),
+                ),
+            ))
+        },
+        u => Err(format!("Cannot do uint-from-bool on {u}")),
+    }
+}
+
 pub fn uint_from_bits(u: PyTerm) -> Result<PyTerm, String> {
     match &u.ty {
         Ty::Array(bits, elem_ty) if **elem_ty == Ty::Bool => match bits {

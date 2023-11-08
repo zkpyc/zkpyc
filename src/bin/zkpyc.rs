@@ -111,7 +111,6 @@ fn main() {
         }
     };
 
-
     let inputs = front::python::Inputs {
         file: path_buf,
         mode,
