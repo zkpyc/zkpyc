@@ -1,6 +1,4 @@
-use std::fmt;
-
-use curve25519_dalek::scalar::Scalar as Ed25519;
+use curve25519_dalek::scalar::Scalar as Curve25519;
 use ff::Field;
 use rug::Integer;
 use self::{bn256::Bn256, bls12_381::Bls12_381};
@@ -51,14 +49,13 @@ impl PrimeField for Bn256 {
 
     fn to_repr(&self) -> Self::Repr {
         <Bn256 as ff::PrimeField>::to_repr(self).as_ref().try_into().expect("Conversion from Bn256Repr to [u8; 32] failed.")
-
     }
 
     fn int_to_ff(value: Integer) -> Self {
         let mut accumulator = Bn256::from(0);
         let limb_bits = (std::mem::size_of::<gmp_mpfr_sys::gmp::limb_t>() as u64) << 3;
         let limb_base = Bn256::from(2).pow_vartime([limb_bits]);
-        // as_ref yeilds a least-significant-first array.
+        // as_ref yields a least-significant-first array.
         for digit in value.as_ref().iter().rev() {
             accumulator *= limb_base;
             accumulator += Bn256::from(*digit);
@@ -67,24 +64,6 @@ impl PrimeField for Bn256 {
     }
 
 }
-
-// impl fmt::Debug for Bn256 {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         let tmp = self.to_bytes();
-//         write!(f, "0x")?;
-//         for &b in tmp.iter().rev() {
-//             write!(f, "{:02x}", b)?;
-//         }
-//         Ok(())
-//     }
-// }
-
-// impl fmt::Display for Bn256 {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         write!(f, "{:?}", self)
-//     }
-// }
-
 
 impl PrimeField for Bls12_381 {
     type Repr = [u8; 32];
@@ -105,7 +84,7 @@ impl PrimeField for Bls12_381 {
         let mut accumulator = Bls12_381::from(0);
         let limb_bits = (std::mem::size_of::<gmp_mpfr_sys::gmp::limb_t>() as u64) << 3;
         let limb_base = Bls12_381::from(2).pow_vartime([limb_bits]);
-        // as_ref yeilds a least-significant-first array.
+        // as_ref yields a least-significant-first array.
         for digit in value.as_ref().iter().rev() {
             accumulator *= limb_base;
             accumulator += Bls12_381::from(*digit);
@@ -115,16 +94,15 @@ impl PrimeField for Bls12_381 {
 
 }
 
-
-impl PrimeField for Ed25519 {
+impl PrimeField for Curve25519 {
     type Repr = [u8; 32];
 
-    fn one() -> Ed25519 {
-        Ed25519::one()
+    fn one() -> Curve25519 {
+        Curve25519::one()
     }
 
-    fn neg(&self) -> Ed25519 {
-        <Ed25519 as std::ops::Neg>::neg(*self)
+    fn neg(&self) -> Curve25519 {
+        <Curve25519 as std::ops::Neg>::neg(*self)
     }
 
     fn to_repr(&self) -> Self::Repr {
@@ -132,31 +110,29 @@ impl PrimeField for Ed25519 {
     }
 
     fn int_to_ff(value: Integer) -> Self {
-        let mut accumulator = Ed25519::from(0 as u64);
+        let mut accumulator = Curve25519::from(0 as u64);
         let limb_bits = (std::mem::size_of::<gmp_mpfr_sys::gmp::limb_t>() as u64) << 3;
-        let limb_base = pow_vartime(Ed25519::from(2 as u64), [limb_bits]);
-        // as_ref yeilds a least-significant-first array.
+        let limb_base = pow_vartime(Curve25519::from(2 as u64), [limb_bits]);
+        // as_ref yields a least-significant-first array.
         for digit in value.as_ref().iter().rev() {
             accumulator *= limb_base;
-            accumulator += Ed25519::from(*digit);
+            accumulator += Curve25519::from(*digit);
         }
         accumulator
     }
-
 }
 
-fn pow_vartime<S: AsRef<[u64]>>(ed25519: Ed25519, exp: S) -> Ed25519 {
-    let mut res = Ed25519::one();
+fn pow_vartime<S: AsRef<[u64]>>(curve25519: Curve25519, exp: S) -> Curve25519 {
+    let mut res = Curve25519::one();
     for e in exp.as_ref().iter().rev() {
         for i in (0..64).rev() {
             res = res*res;
 
             if ((*e >> i) & 1) == 1 {
-                res *= ed25519;
+                res *= curve25519;
             }
         }
     }
-
     res
 }
 

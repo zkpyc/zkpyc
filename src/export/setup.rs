@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::utilities::{r1cs::{ProverData, VerifierData},
-    proof::{ProofSystem, serialize_into_file}};
+    proof::serialize_into_file};
 
 pub struct ZkInterface;
 

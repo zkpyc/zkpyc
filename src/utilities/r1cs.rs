@@ -178,7 +178,7 @@ impl Var {
             c => panic!("Bad type code {}", c),
         }
     }
-    fn number(&self) -> usize {
+    pub fn number(&self) -> usize {
         self.0 & Self::NUMBER_MASK
     }
 }
