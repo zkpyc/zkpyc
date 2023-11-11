@@ -113,6 +113,7 @@ fn main() {
 
     let inputs = front::python::Inputs {
         file: path_buf,
+        entry_point: String::from("main"),
         mode,
     };
 

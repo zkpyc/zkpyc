@@ -31,8 +31,10 @@ const GC_INC: usize = 32;
 
 /// Inputs to the Python compiler
 pub struct Inputs {
-    /// The file to look for the `main` function.
+    /// The file to look for the entry point. e.g. the `main` function.
     pub file: PathBuf,
+    // The entry point.
+    pub entry_point: String,
     /// Mode to generate for (MPC or proof).
     pub mode: Mode,
 }
@@ -50,18 +52,17 @@ impl FrontEnd for PythonFE {
         let asts = loader.load(&i.file);
         // need to figure out how to create python config
         let mut g = PyGen::new(asts, i.mode, loader.stdlib(), cfg().zsharp.isolate_asserts);
-        g.visit_files();
+        g.visit_files(&i.entry_point);
         g.file_stack_push(i.file);
         // no generics for now
-        // let us require main, maybe we change that to module name later
-        g.entry_fn("main");
+        g.entry_fn(&i.entry_point);
         g.file_stack_pop();
 
         let mut cs = Computations::new();
         let main_comp = std::rc::Rc::try_unwrap(g.into_circify().consume())
             .unwrap_or_else(|rc| (*rc).clone())
             .into_inner();
-        cs.comps.insert("main".to_string(), main_comp);
+        cs.comps.insert(i.entry_point.clone(), main_comp);
         cs
     }
 }
@@ -72,9 +73,9 @@ impl PythonFE {
         let asts = loader.load(&i.file);
         // like before, figure out cfg() zsharp part
         let mut g = PyGen::new(asts, i.mode, loader.stdlib(), cfg().zsharp.isolate_asserts);
-        g.visit_files();
+        g.visit_files(&i.entry_point);
         g.file_stack_push(i.file);
-        g.const_entry_fn("main")
+        g.const_entry_fn(&i.entry_point)
     }
 }
 
@@ -2224,15 +2225,15 @@ impl<'a> PyGen<'a> {
         }
     }
 
-    fn visit_files(&mut self) {
+    fn visit_files(&mut self, entry_point: &String) {
         // 1. go through includes and return a toposorted visit order for remaining processing
-        let files = self.visit_imports();
+        let files = self.visit_imports(entry_point);
 
         // 2. visit constant, class, and function defs ; infer types
         self.visit_body(files);
     }
 
-    fn visit_imports(&mut self) -> Vec<PathBuf> {
+    fn visit_imports(&mut self, entry_point: &String) -> Vec<PathBuf> {
         use petgraph::algo::toposort;
         use petgraph::graph::{DefaultIx, DiGraph, NodeIndex};
         let asts = std::mem::take(&mut self.asts);
@@ -2259,7 +2260,7 @@ impl<'a> PyGen<'a> {
                     // Multi-import is not supported yet.
                     ast::Stmt::Import(m) => (
                         m.names[0].name.to_string(),
-                        vec!["main".to_owned()],
+                        vec![entry_point.to_string()],
                         vec![m
                             .names[0]
                             .asname
