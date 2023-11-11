@@ -9,7 +9,7 @@ use circ::ir::term::Value::Field;
 use circ::cfg::cfg;
 use crate::utilities::{
     r1cs::{ProverData, VerifierData, R1csFinal, Var, Lc, VarType},
-    wit_comp::StagedWitCompEvaluator};
+    wit_comp::StagedWitCompEvaluator, wit_comp::StagedWitComp};
 use fxhash::FxHasher;
 use zkinterface::{
     ConstraintSystem,
@@ -258,10 +258,11 @@ pub fn write_circuit_header<F: PrimeField>(
 }
 
 pub fn prepare_generate_proof<F: PrimeField>(
-    pd: &ProverData,
+    cvars: &Vec<Var>,
+    wit_comp: &StagedWitComp,
     witness_map: HashMap<String, Value, BuildHasherDefault<FxHasher>>,
 ) -> (Vec<Value>, Vec<Value>) {
-    let public_variables_count = &pd.r1cs.vars
+    let public_variables_count = cvars
         .iter()
         .filter(|&var| {
             match var.ty() {
@@ -271,7 +272,7 @@ pub fn prepare_generate_proof<F: PrimeField>(
         })
         .count();
     // Evaluate the witnesses
-    let mut evaluator = StagedWitCompEvaluator::new(&pd.precompute);
+    let mut evaluator = StagedWitCompEvaluator::new(wit_comp);
     let mut ffs = Vec::new();
     ffs.extend(evaluator.eval_stage(witness_map.clone()).into_iter().cloned());
     ffs.extend(
@@ -285,7 +286,7 @@ pub fn prepare_generate_proof<F: PrimeField>(
     witness.insert(0, Value::Field(cfg().field().new_v(1)));
     // split witness into public and private inputs at offset
     let mut public_inputs: Vec<Value> = witness.clone();
-    let private_inputs: Vec<Value> = public_inputs.split_off(*public_variables_count + 1);
+    let private_inputs: Vec<Value> = public_inputs.split_off(public_variables_count + 1);
     (
         public_inputs,
         private_inputs,

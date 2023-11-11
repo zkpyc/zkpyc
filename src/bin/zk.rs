@@ -73,7 +73,7 @@ fn prepare_prover_statements<F: PrimeField>(opts: &Options) {
     let (
         public_inputs_arr,
         private_inputs_arr,
-    ) = export::prepare_generate_proof::<F>(&pd, witness.clone());
+    ) = export::prepare_generate_proof::<F>(&pd.r1cs.vars, &pd.precompute, witness.clone());
     let first_local_id = public_inputs_arr.len() as u64;
     let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
     export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function");
