@@ -7,6 +7,7 @@ use crate::utilities::scalar_fields::PrimeField;
 use circ::ir::term::Value;
 use circ::ir::term::Value::Field;
 use circ::cfg::cfg;
+use circ_fields::FieldV;
 use crate::utilities::{
     r1cs::{ProverData, VerifierData, R1csFinal, Var, Lc, VarType},
     wit_comp::StagedWitCompEvaluator, wit_comp::StagedWitComp};
@@ -294,15 +295,20 @@ pub fn prepare_generate_proof<F: PrimeField>(
 }
 
 pub fn prepare_verify_proof<F: PrimeField>(
-    vd: &VerifierData,
+    cvars: &Vec<Var>,
+    wit_comp: &StagedWitComp,
     witness_map: HashMap<String, Value, BuildHasherDefault<FxHasher>>,
 ) -> (Vec<Value>, u64, u64) {
-    let insance_map = vd.eval(&witness_map);
-    let mut public_inputs: Vec<Value> = insance_map
+    let mut eval = StagedWitCompEvaluator::new(wit_comp);
+    let instance_map: Vec<FieldV> = eval.eval_stage(witness_map.clone())
+        .into_iter()
+        .map(|v| v.as_pf().clone())
+        .collect();
+    let mut public_inputs: Vec<Value> = instance_map
         .into_iter()
         .map(|i| Value::from(Field(i)))
         .collect();
-    let private_variables_count = &vd.r1cs.vars
+    let private_variables_count = cvars
     .iter()
     .filter(|&var| {
         match var.ty() {
@@ -314,6 +320,6 @@ pub fn prepare_verify_proof<F: PrimeField>(
     // Insert the one variable assignment
     public_inputs.insert(0, Value::Field(cfg().field().new_v(1)));
     let first_local_id = public_inputs.len() as u64;
-    let free_variable_id = first_local_id + *private_variables_count as u64;
+    let free_variable_id = first_local_id + private_variables_count as u64;
     (public_inputs, first_local_id, free_variable_id)
 }

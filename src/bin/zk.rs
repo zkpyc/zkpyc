@@ -2,15 +2,14 @@ use circ::cfg::{
     clap::{self, Parser, ValueEnum},
     CircOpt,
 };
-use log::debug;
 use std::path::PathBuf;
-use zkpyc::{export::{self, prepare_verify_proof}, utilities::scalar_fields::PrimeField};
+use zkpyc::{export, utilities::scalar_fields::PrimeField};
 use circ::cfg::cfg;
 
 #[cfg(feature = "bellman")]
 use bls12_381::Bls12;
 #[cfg(feature = "bellman")]
-use zkpyc::utilities::{bellman::{Bellman}, mirage::Mirage, proof::ProofSystem, r1cs::{ProverData, VerifierData}};
+use zkpyc::utilities::{bellman::Bellman, mirage::Mirage, proof::ProofSystem, r1cs::{ProverData, VerifierData}};
 
 #[cfg(feature = "spartan")]
 use circ::ir::term::text::parse_value_map;
@@ -88,7 +87,7 @@ fn prepare_verifier_statements<F: PrimeField>(opts: &Options) {
         public_inputs_arr,
         first_local_id,
         free_variable_id,
-    ) = export::prepare_verify_proof::<F>(&vd, witness.clone());
+    ) = export::prepare_verify_proof::<F>(&vd.r1cs.vars, &vd.precompute, witness.clone());
     export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function");
 }
 
