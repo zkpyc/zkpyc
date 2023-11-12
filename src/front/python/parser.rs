@@ -78,11 +78,10 @@ impl PyGadgets {
     // }
 
     pub fn is_embed<P: AsRef<Path>>(&self, p: P) -> bool {
+        // For now we check it is either in the parent directory or in
+        // the zkpytoolkit directory (maybe make it customizable in the future).
         let p_ref = p.as_ref();
-        println!("{:#?}", &p_ref);
-        let a = p_ref.ends_with("EMBED.py") || p_ref.ends_with("zkpytoolkit/EMBED.py");
-        println!("{:#?}", &a);
-        a
+        p_ref.ends_with("EMBED.py") || p_ref.ends_with("zkpytoolkit/EMBED.py")
     }
 
 }
