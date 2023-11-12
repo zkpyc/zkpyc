@@ -79,7 +79,10 @@ impl PyGadgets {
 
     pub fn is_embed<P: AsRef<Path>>(&self, p: P) -> bool {
         let p_ref = p.as_ref();
-        p_ref.ends_with("EMBED") || p_ref.ends_with(Path::new("zkpytoolkit/EMBED"))
+        println!("{:#?}", &p_ref);
+        let a = p_ref.ends_with("EMBED.py") || p_ref.ends_with("zkpytoolkit/EMBED.py");
+        println!("{:#?}", &a);
+        a
     }
 
 }
