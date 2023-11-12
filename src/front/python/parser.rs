@@ -72,9 +72,14 @@ impl PyGadgets {
     }
 
     /// check if this path is the EMBED prototypes path
+    // pub fn is_embed<P: AsRef<Path>>(&self, p: P) -> bool {
+    //     p.as_ref().starts_with(&self.path)
+    //         && p.as_ref().file_stem().and_then(|s|s.to_str()) == Some("EMBED")
+    // }
+
     pub fn is_embed<P: AsRef<Path>>(&self, p: P) -> bool {
-        p.as_ref().starts_with(&self.path)
-            && p.as_ref().file_stem().and_then(|s| s.to_str()) == Some("EMBED")
+        let p_ref = p.as_ref();
+        p_ref.ends_with("EMBED") || p_ref.ends_with(Path::new("zkpytoolkit/EMBED"))
     }
 
 }
