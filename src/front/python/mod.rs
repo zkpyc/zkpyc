@@ -192,16 +192,26 @@ impl<'a> PyGen<'a> {
         self.circ.replace(Circify::new(Python::new()))
     }
 
-    // For now just print stmt range, later we can improve it
     fn err<E: Display>(&self, e: E, s: &TextRange) -> ! {
         let range = range_before_filter(s, self.cur_path());
         let line = line_from_range(range, self.cur_path());
         
-        println!("ZKPyC Compilation Error -- Traceback:");
-        println!("\tFile {}, line {:?}, in {}", self.cur_path().canonicalize().unwrap().display(), line, self.curr_func.borrow());
-        println!("{}", range_to_string(s, self.cur_path()));
-        println!("Error: {e}");
-        std::process::exit(1)
+        // println!("ZKPyC Compilation Error -- Traceback:");
+        // println!("\tFile {}, line {:?}, in {}", self.cur_path().canonicalize().unwrap().display(), line, self.curr_func.borrow());
+        // println!("{}", range_to_string(s, self.cur_path()));
+        // println!("Error: {e}");
+        // std::process::exit(1)
+        panic!(
+            "ZKPyC Compilation Error -- Traceback:\n\
+            \tFile {}, line {:?}, in {}\n\
+            {}\n\
+            Error: {}",
+            self.cur_path().canonicalize().unwrap().display(),
+            line,
+            self.curr_func.borrow(),
+            range_to_string(s, self.cur_path()),
+            e
+        );
     }
 
     fn unwrap<PyTerm, E: Display>(&self, r: Result<PyTerm, E>, s: &TextRange) -> PyTerm {
