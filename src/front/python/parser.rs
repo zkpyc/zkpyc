@@ -54,7 +54,7 @@ impl PyGadgets {
         for mut p in paths {
             p.push(child);
             debug!("Checking {}", p.display());
-            if p.exists() || self.is_embed(&p) {
+            if p.exists() {
                 return p;
             }
             if p.extension().is_some() {
