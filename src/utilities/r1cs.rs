@@ -157,7 +157,7 @@ pub struct Var(usize);
 impl Var {
     const NUMBER_BITS: u32 = usize::BITS - 3;
     const NUMBER_MASK: usize = !(0b111 << Self::NUMBER_BITS);
-    fn new(ty: VarType, number: usize) -> Self {
+    pub fn new(ty: VarType, number: usize) -> Self {
         assert!(!Self::NUMBER_MASK & number == 0);
         let ty_repr = match ty {
             VarType::Inst => 0b000,
