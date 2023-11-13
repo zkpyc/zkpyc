@@ -18,7 +18,7 @@ pub fn serialize_into_file<S: Serialize, P: AsRef<Path>>(data: &S, path: P) -> s
     Ok(())
 }
 
-fn deserialize_from_file<D: for<'a> Deserialize<'a>, P: AsRef<Path>>(
+pub fn deserialize_from_file<D: for<'a> Deserialize<'a>, P: AsRef<Path>>(
     path: P,
 ) -> std::io::Result<D> {
     Ok(deserialize_from(File::open(path.as_ref())?).unwrap())
