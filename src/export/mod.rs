@@ -2,7 +2,7 @@
 
 pub mod setup;
 
-use crate::utilities::scalar_fields::PrimeField;
+use crate::utilities::{scalar_fields::PrimeField, proof::{deserialize_from_file, value_map_from_path}};
 
 use circ::ir::term::Value;
 use circ::ir::term::Value::Field;
@@ -27,34 +27,33 @@ use std::path::Path;
 use std::mem;
 use std::marker::PhantomData;
 
-
-pub struct ZkifCS<F: PrimeField> {
+struct ZkifCS<F: PrimeField> {
     pub constraints_per_message: usize,
     statement: StatementBuilder<WorkspaceSink>,
     constraints: ConstraintSystem,
     phantom: PhantomData<F>,
 }
 
-pub struct ZkifWitnesses<F: PrimeField> {
+struct ZkifWitnesses<F: PrimeField> {
     statement: StatementBuilder<WorkspaceSink>,
     witness_ids: Vec<u64>,
     witness_encoding: Vec<u8>,
     phantom: PhantomData<F>,
 }
 
-pub struct ZkifCircuit<F: PrimeField> {
+struct ZkifCircuit<F: PrimeField> {
     statement: StatementBuilder<WorkspaceSink>,
     instance_ids: Vec<u64>,
     instance_encoding: Vec<u8>,
     free_variable_id: u64,
-    phantom: PhantomData<F>,
+    phantom: PhantomData<F>
 }
 
 const DEFAULT_CONSTRAINTS_PER_MESSAGE: usize = usize::MAX;
 
 impl<F: PrimeField> ZkifCS<F> {
     /// Must call finish() to finalize the files in the workspace.
-    pub fn new(workspace: impl AsRef<Path>) -> Self {
+    fn new(workspace: impl AsRef<Path>) -> Self {
         let sink = WorkspaceSink::new(workspace).unwrap();
         let statement = StatementBuilder::new(sink);
         ZkifCS {
@@ -65,7 +64,7 @@ impl<F: PrimeField> ZkifCS<F> {
         }
     }
 
-    pub fn finish(mut self, name: &str) -> zkinterface::Result<()> {
+    fn finish(mut self, name: &str) -> zkinterface::Result<()> {
         if self.constraints.constraints.len() > 0 {
             self.statement.push_constraints(self.constraints)?;
         }
@@ -95,7 +94,7 @@ impl<F: PrimeField> ZkifCS<F> {
 }
 
 impl<F: PrimeField> ZkifWitnesses<F> {
-    pub fn new(workspace: impl AsRef<Path>, witness_ids: Vec<u64>, witness_encoding: Vec<u8>) -> Self {
+    fn new(workspace: impl AsRef<Path>, witness_ids: Vec<u64>, witness_encoding: Vec<u8>) -> Self {
         let sink = WorkspaceSink::new(workspace).unwrap();
         let statement = StatementBuilder::new(sink);
         ZkifWitnesses { 
@@ -106,7 +105,7 @@ impl<F: PrimeField> ZkifWitnesses<F> {
         }
     }
 
-    pub fn finish(mut self) -> zkinterface::Result<()> {
+    fn finish(mut self) -> zkinterface::Result<()> {
         let wit = Witness {
             assigned_variables: Variables {
                 variable_ids: self.witness_ids,
@@ -118,7 +117,7 @@ impl<F: PrimeField> ZkifWitnesses<F> {
 }
 
 impl <F: PrimeField> ZkifCircuit<F> {
-    pub fn new(workspace: impl AsRef<Path>, instance_ids: Vec<u64>, free_variable_id: u64) -> Self {
+    fn new(workspace: impl AsRef<Path>, instance_ids: Vec<u64>, free_variable_id: u64) -> Self {
         let sink = WorkspaceSink::new(workspace).unwrap();
         let statement = StatementBuilder::new(sink);
         ZkifCircuit { 
@@ -130,7 +129,7 @@ impl <F: PrimeField> ZkifCircuit<F> {
         }
     }
 
-    pub fn finish(mut self, name: &str) -> zkinterface::Result<()> {
+    fn finish(mut self, name: &str) -> zkinterface::Result<()> {
         let connections = Variables {
             variable_ids: self.instance_ids,
             values: Some(self.instance_encoding.clone()),
@@ -152,20 +151,7 @@ impl <F: PrimeField> ZkifCircuit<F> {
     }
 }
 
-pub fn to_zkif_constraint<F: PrimeField>(
-    vars: &Vec<Var>,
-    a: &Lc,
-    b: &Lc,
-    c: &Lc,
-) -> BilinearConstraint {
-    BilinearConstraint {
-        linear_combination_a: to_zkif_lc::<F>(vars, a),
-        linear_combination_b: to_zkif_lc::<F>(vars, b),
-        linear_combination_c: to_zkif_lc::<F>(vars, c),
-    }
-}
-
-pub fn to_zkif_lc<F: PrimeField>(
+fn to_zkif_lc<F: PrimeField>(
     vars: &Vec<Var>,
     lc: &Lc,
 ) -> Variables {
@@ -185,19 +171,7 @@ pub fn to_zkif_lc<F: PrimeField>(
     Variables { variable_ids, values: Some(coeffs) }
 }
 
-pub fn to_zkif_witness<F: PrimeField>(
-    values: &Vec<Value>,
-) -> Vec<u8> {
-    let mut witnesses = Vec::<u8>::new();
-    for value in values {
-        // Values must always be of Field variant,
-        // otherwise something went wrong.
-        write_scalar(&F::int_to_ff(value.as_pf().into()), &mut witnesses);
-    }
-    witnesses
-}
-
-pub fn write_scalar<F: PrimeField>(
+fn write_scalar<F: PrimeField>(
     fr: &F,
     writer: &mut impl Write,
 ) {
@@ -209,7 +183,7 @@ pub fn write_constraints<F: PrimeField>(
     r1cs: &R1csFinal,
     f_name: &str,
     workspace: &Path,
-) {
+) -> zkinterface::Result<()> {
     let mut cs = ZkifCS::<F>::new(workspace);
     let vars = &r1cs.vars;
     for (_, (a, b, c)) in r1cs.constraints.iter().enumerate() {
@@ -218,17 +192,17 @@ pub fn write_constraints<F: PrimeField>(
             linear_combination_b: to_zkif_lc::<F>(vars, b),
             linear_combination_c: to_zkif_lc::<F>(vars, c),
         };
-        cs.push_constraint(lc).unwrap();
+        cs.push_constraint(lc)?;
 
     }
-    cs.finish(f_name).unwrap();
+    cs.finish(f_name)
 }
 
 pub fn write_witnesses<F: PrimeField>(
     first_local_id: u64,
     local_values: &[Value],
     workspace: &Path,
-) {
+) -> zkinterface::Result<()> {
     let mut ids = vec![];
     let mut values = vec![];
     for i in 0..local_values.len() {
@@ -237,7 +211,7 @@ pub fn write_witnesses<F: PrimeField>(
         write_scalar(&F::int_to_ff(local_values[i].as_pf().into()), &mut values);
     }
     let witt = ZkifWitnesses::<F>::new(workspace, ids, values);
-    witt.finish().unwrap();
+    witt.finish()
 }
 
 pub fn write_circuit_header<F: PrimeField>(
@@ -246,7 +220,7 @@ pub fn write_circuit_header<F: PrimeField>(
     public_inputs: Option<&[Value]>,
     f_name: &str,
     workspace: &Path,
-) {
+) -> zkinterface::Result<()> {
     // we do not include the constant one
     let ids = (1..first_local_id).collect();
     // Convert element representations.
@@ -260,11 +234,10 @@ pub fn write_circuit_header<F: PrimeField>(
     });
     let mut circuit = ZkifCircuit::<F>::new(workspace, ids, free_variable_id);
     circuit.instance_encoding = values.unwrap();
-
-    circuit.finish(f_name).unwrap();
+    circuit.finish(f_name)
 }
 
-pub fn prepare_generate_proof<F: PrimeField>(
+fn prepare_generate_proof<F: PrimeField>(
     cvars: &Vec<Var>,
     wit_comp: &StagedWitComp,
     witness_map: HashMap<String, Value, BuildHasherDefault<FxHasher>>,
@@ -300,7 +273,7 @@ pub fn prepare_generate_proof<F: PrimeField>(
     )
 }
 
-pub fn prepare_verify_proof<F: PrimeField>(
+fn prepare_verify_proof<F: PrimeField>(
     cvars: &Vec<Var>,
     wit_comp: &StagedWitComp,
     witness_map: HashMap<String, Value, BuildHasherDefault<FxHasher>>,
@@ -328,4 +301,48 @@ pub fn prepare_verify_proof<F: PrimeField>(
     let first_local_id = public_inputs.len() as u64;
     let free_variable_id = first_local_id + private_variables_count as u64;
     (public_inputs, first_local_id, free_variable_id)
+}
+
+pub fn prepare_prover_statements<F: PrimeField>(
+    f_name: &str,
+    inputs_path: &Path,
+    pk_path: &Path,
+    workspace: &Path,
+    generate_constraints: bool,
+) -> zkinterface::Result<()> {
+    let pd: ProverData = deserialize_from_file(pk_path).unwrap();
+    let witness = value_map_from_path(inputs_path).unwrap();
+    if generate_constraints {
+        write_constraints::<F>(&pd.r1cs, f_name, workspace)?;
+    }
+    let (
+        public_inputs_arr,
+        private_inputs_arr,
+    ) = prepare_generate_proof::<F>(&pd.r1cs.vars, &pd.precompute, witness.clone());
+    let first_local_id = public_inputs_arr.len() as u64;
+    let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
+    write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), f_name, workspace)?;
+    write_witnesses::<F>(first_local_id, &private_inputs_arr, workspace)?;
+    Ok(())
+}
+
+pub fn prepare_verifier_statements<F: PrimeField>(
+    f_name: &str,
+    inputs_path: &Path,
+    pk_path: &Path,
+    workspace: &Path,
+    generate_constraints: bool,
+) -> zkinterface::Result<()> {
+    let vd: VerifierData = deserialize_from_file(pk_path).unwrap();
+    let witness = value_map_from_path(inputs_path).unwrap();
+    if generate_constraints {
+        write_constraints::<F>(&vd.r1cs, f_name, workspace)?;
+    }
+    let (
+        public_inputs_arr,
+        first_local_id,
+        free_variable_id,
+    ) = prepare_verify_proof::<F>(&vd.r1cs.vars, &vd.precompute, witness.clone());
+    write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), f_name, workspace)?;
+    Ok(())
 }

@@ -24,7 +24,7 @@ pub fn deserialize_from_file<D: for<'a> Deserialize<'a>, P: AsRef<Path>>(
     Ok(deserialize_from(File::open(path.as_ref())?).unwrap())
 }
 
-fn value_map_from_path<P: AsRef<Path>>(path: P) -> std::io::Result<HashMap<String, Value>> {
+pub fn value_map_from_path<P: AsRef<Path>>(path: P) -> std::io::Result<HashMap<String, Value>> {
     Ok(parse_value_map(&std::fs::read(path)?))
 }
 
