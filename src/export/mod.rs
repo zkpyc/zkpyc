@@ -205,8 +205,12 @@ pub fn write_scalar<F: PrimeField>(
     writer.write_all(repr.as_ref()).unwrap();
 }
 
-pub fn write_constraints<F: PrimeField>(r1cs: &R1csFinal, f_name: &str) {
-    let mut cs = ZkifCS::<F>::new("zkif_export");    
+pub fn write_constraints<F: PrimeField>(
+    r1cs: &R1csFinal,
+    f_name: &str,
+    workspace: &Path,
+) {
+    let mut cs = ZkifCS::<F>::new(workspace);
     let vars = &r1cs.vars;
     for (_, (a, b, c)) in r1cs.constraints.iter().enumerate() {
         let lc = BilinearConstraint {
@@ -223,6 +227,7 @@ pub fn write_constraints<F: PrimeField>(r1cs: &R1csFinal, f_name: &str) {
 pub fn write_witnesses<F: PrimeField>(
     first_local_id: u64,
     local_values: &[Value],
+    workspace: &Path,
 ) {
     let mut ids = vec![];
     let mut values = vec![];
@@ -231,7 +236,7 @@ pub fn write_witnesses<F: PrimeField>(
         // Values are always prime field elements
         write_scalar(&F::int_to_ff(local_values[i].as_pf().into()), &mut values);
     }
-    let witt = ZkifWitnesses::<F>::new("zkif_export", ids, values);
+    let witt = ZkifWitnesses::<F>::new(workspace, ids, values);
     witt.finish().unwrap();
 }
 
@@ -240,6 +245,7 @@ pub fn write_circuit_header<F: PrimeField>(
     free_variable_id: u64,
     public_inputs: Option<&[Value]>,
     f_name: &str,
+    workspace: &Path,
 ) {
     // we do not include the constant one
     let ids = (1..first_local_id).collect();
@@ -252,7 +258,7 @@ pub fn write_circuit_header<F: PrimeField>(
         }
         values
     });
-    let mut circuit = ZkifCircuit::<F>::new("zkif_export", ids, free_variable_id);
+    let mut circuit = ZkifCircuit::<F>::new(workspace, ids, free_variable_id);
     circuit.instance_encoding = values.unwrap();
 
     circuit.finish(f_name).unwrap();

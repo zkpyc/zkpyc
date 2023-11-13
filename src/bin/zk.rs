@@ -68,27 +68,27 @@ enum Modulus {
 fn prepare_prover_statements<F: PrimeField>(opts: &Options) {
     let pd: ProverData = bincode::deserialize_from(std::fs::File::open::<&std::path::Path>(&opts.prover_key.as_ref()).unwrap()).unwrap();
     let witness = circ::ir::term::text::parse_value_map(&std::fs::read(&opts.inputs).unwrap());
-    export::write_constraints::<F>(&pd.r1cs, "function");
+    export::write_constraints::<F>(&pd.r1cs, "function", "zkif_export".as_ref());
     let (
         public_inputs_arr,
         private_inputs_arr,
     ) = export::prepare_generate_proof::<F>(&pd.r1cs.vars, &pd.precompute, witness.clone());
     let first_local_id = public_inputs_arr.len() as u64;
     let free_variable_id = first_local_id + private_inputs_arr.len() as u64;
-    export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function");
-    export::write_witnesses::<F>(first_local_id, &private_inputs_arr);
+    export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function", "zkif_export".as_ref());
+    export::write_witnesses::<F>(first_local_id, &private_inputs_arr, "zkif_export".as_ref());
 }
 
 fn prepare_verifier_statements<F: PrimeField>(opts: &Options) {
     let vd: VerifierData = bincode::deserialize_from(std::fs::File::open::<&std::path::Path>(&opts.verifier_key.as_ref()).unwrap()).unwrap();
     let witness = circ::ir::term::text::parse_value_map(&std::fs::read(&opts.inputs).unwrap());
-    export::write_constraints::<F>(&vd.r1cs, "function");
+    export::write_constraints::<F>(&vd.r1cs, "function", "zkif_export".as_ref());
     let (
         public_inputs_arr,
         first_local_id,
         free_variable_id,
     ) = export::prepare_verify_proof::<F>(&vd.r1cs.vars, &vd.precompute, witness.clone());
-    export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function");
+    export::write_circuit_header::<F>(first_local_id, free_variable_id, Some(&public_inputs_arr), "function", "zkif_export".as_ref());
 }
 
 
