@@ -1,6 +1,6 @@
 from zk_types.types import Array, field # zk_ignore
-# from ecc.babyjubjubParams import BabyJubJubParams
-from ecc.jubjubParams import BabyJubJubParams
+from ecc.babyjubjubParams import BabyJubJubParams
+# from ecc.jubjubParams import BabyJubJubParams
 
 
 # Add two points on a twisted Edwards curve

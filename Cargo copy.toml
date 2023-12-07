@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-circ = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
-circ_fields = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
-circ_opt = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
-circ_hc = { git = "https://github.com/circify/circ.git", rev = "a26533ba", default-features = false, features = ["rc", "lru"]}
+circ = { git = "https://github.com/circify/circ.git", rev = "a586f7f9" }
+circ_fields = { git = "https://github.com/circify/circ.git", rev = "a586f7f9" }
+circ_opt = { git = "https://github.com/circify/circ.git", rev = "a586f7f9" }
+circ_hc = { git = "https://github.com/circify/circ.git", rev = "a586f7f9", default-features = false, features = ["rc", "lru"]}
 rand = "0.8"
 log = "0.4"
 rug = { version = "1.11", features = ["serde"] }

@@ -919,19 +919,32 @@ impl<'a> PyGen<'a> {
         target: &ast::ExprSubscript,
         val: PyTerm,
     ) -> Result<PyTerm, String> {
+        let array_size = if let Ty::Array(s, _) = val.ty {
+            s
+        } else {
+            0
+        };
         match target.slice.as_ref() {
             ast::Expr::Slice(r) => {
                 let s = r
                     .lower
                     .as_ref()
                     .map(|s| self.const_usize_impl_::<IS_CNST>(&s))
-                    .transpose()?;
+                    .transpose()?
+                    .map(|value| if value <= array_size { value } else { array_size - (u32::MAX as usize - value + 1) });
                 let e = r
                     .upper
                     .as_ref()
                     .map(|s| self.const_usize_impl_::<IS_CNST>(&s))
-                    .transpose()?;
-                slice(val, s, e)
+                    .transpose()?
+                    .map(|value| if value <= array_size { value } else { array_size - (u32::MAX as usize - value + 1) });
+                let step = r
+                    .step
+                    .as_ref()
+                    .map(|s| self.const_usize_impl_::<IS_CNST>(&s))
+                    .transpose()?
+                    .map(|value| if value <= (u32::MAX / 2) as usize {value as isize} else {(u32::MAX as usize - value + 1) as isize * (-1)});
+                slice(val, s, e, step)
             }
             _ => {
                 array_select(val, self.expr_impl_::<IS_CNST>(&target.slice)?)

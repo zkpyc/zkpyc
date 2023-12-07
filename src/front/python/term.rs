@@ -689,17 +689,53 @@ where
     PyTerm::new(Ty::Uint(bits), bv_lit(v, bits))
 }
 
-pub fn slice(arr: PyTerm, start: Option<usize>, end: Option<usize>) -> Result<PyTerm, String> {
+pub fn slice(arr: PyTerm, start: Option<usize>, end: Option<usize>, step: Option<isize>) -> Result<PyTerm, String> {
     match &arr.ty {
         Ty::Array(size, _) => {
-            let start = start.unwrap_or(0);
-            let end = end.unwrap_or(*size);
-            array(arr.unwrap_array()?.drain(start..end))
+            let step = step.unwrap_or(1);
+
+            if step == 0 {
+                return Err(format!("Slice step cannot be zero"));
+            }
+
+            if step > 0 {
+                let start = start.unwrap_or(0);
+                let end = end.unwrap_or(*size);
+                array(arr.unwrap_array()?.drain(start..end).step_by(step as usize))
+            } else {
+                let start = match start {
+                    Some(val) => val+1,
+                    None => *size
+                };
+                let end = match end {
+                    Some(val) => val+1,
+                    None => 0
+                };
+                array(arr.unwrap_array()?.drain(end..start).rev().step_by(-step as usize))
+            }
         }
         Ty::MutArray(size) => {
-            let start = start.unwrap_or(0);
-            let end = end.unwrap_or(*size);
-            array(arr.unwrap_array()?.drain(start..end))
+            let step = step.unwrap_or(1);
+
+            if step == 0 {
+                return Err(format!("Slice step cannot be zero"));
+            }
+
+            if step > 0 {
+                let start = start.unwrap_or(0);
+                let end = end.unwrap_or(*size);
+                array(arr.unwrap_array()?.drain(start..end).step_by(step as usize))
+            } else {
+                let start = match start {
+                    Some(val) => val+1,
+                    None => *size
+                };
+                let end = match end {
+                    Some(val) => val+1,
+                    None => 0
+                };
+                array(arr.unwrap_array()?.drain(end..start).rev().step_by(-step as usize))
+            }
         }
         a => Err(format!("Cannot slice {a}")),
     }
