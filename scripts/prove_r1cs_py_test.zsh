@@ -71,6 +71,7 @@ function r1cs_pf_test {
 # r1cs_pf_test examples/many_cond.py
 # r1cs_pf_test examples/many_pub.py
 r1cs_pf_test examples/mm.py
+# r1cs_pf_test examples/shear_point.py
 # r1cs_pf_test examples/from_bits.py
 # r1cs_pf_test examples/to_bits.py
 # r1cs_pf_test examples/mul.py

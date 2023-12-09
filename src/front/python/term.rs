@@ -17,13 +17,12 @@ use std::fmt::{self, Display, Formatter};
 pub enum Ty {
     Field,
     Bool,
-    // To handle signed ints we probably need integer promotion
     Uint(usize),
     DataClass(String, FieldList<Ty>),
     Array(usize, Box<Ty>),
     MutArray(usize),
     // could we support other mutable types
-    // like dicts, or other PyTypes
+    // like dicts, or other PyTypes?
 }
 
 impl Display for Ty {
@@ -1075,7 +1074,7 @@ impl Embeddable for Python {
                                 f_ty,
                                 field_name(&name, f_name),
                                 visibility,
-                                precompute.as_ref().map(|_| unimplemented!("precomputations for declared inputs that are Python classes")),
+                                None,
                             ),
                         )
                     })
