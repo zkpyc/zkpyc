@@ -1786,12 +1786,9 @@ impl<'a> PyGen<'a> {
                     &n.range(),
                 )
             }
-            ast::Stmt::Expr(e) => {
-                // If necessary we could also just escape it instead of returning Err
-                self.err(
-                    format!("Expressions must be used within respective statement."),
-                    &e.range(),
-                )
+            ast::Stmt::Expr(_) => {
+                // We can just escape it, since it does not contribute to the circuit
+                Ok(())
             }
             ast::Stmt::Pass(p) => {
                 // We could probably just escape this and then check
