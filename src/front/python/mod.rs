@@ -284,7 +284,7 @@ impl<'a> PyGen<'a> {
             "bit_array_le" => {
                 if args.len() != 2 {
                     Err(format!(
-                        "Got {} args to EMBED/bit_array_le, expected 1",
+                        "Got {} args to EMBED/bit_array_le, expected 2",
                         args.len()
                     ))
                 } else {
@@ -310,6 +310,27 @@ impl<'a> PyGen<'a> {
                     ))
                 } else {
                     Ok(uint_lit(cfg().field().modulus().significant_bits(), 32))
+                }
+            }
+            "sum" => {
+                if args.len() != 1 {
+                    Err(format!(
+                        "Got {} args to EMBED/get_field_size, expected 1",
+                        args.len()
+                    ))
+                } else {
+                    let arg: PyTerm = args.pop().unwrap();
+                    match arg.ty {
+                        Ty::Array(_, _) => {
+                            let terms: Vec<PyTerm> = arg.unwrap_array()?;
+                            let (init_result, rest) = terms.split_first().unwrap();
+                            let final_result = rest.iter().try_fold(init_result.clone(), |prev_result, term| {
+                                add(prev_result.clone(), term.clone())
+                            });
+                            final_result
+                        }
+                        t => Err(format!("Expected array, got {} instead", t)),
+                    }
                 }
             }
             _ => Err(format!("Unknown or unimplemented builtin '{f_name}'")),

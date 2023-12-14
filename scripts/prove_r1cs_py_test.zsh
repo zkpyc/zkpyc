@@ -70,7 +70,7 @@ function r1cs_pf_test {
 # r1cs_pf_test examples/isolate_assert.py
 # r1cs_pf_test examples/many_cond.py
 # r1cs_pf_test examples/many_pub.py
-# r1cs_pf_test examples/mm.py
+r1cs_pf_test examples/mm.py
 # r1cs_pf_test examples/shear_point.py
 # r1cs_pf_test examples/from_bits.py
 # r1cs_pf_test examples/to_bits.py
@@ -87,4 +87,5 @@ function r1cs_pf_test {
 # r1cs_pf_test examples/div.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
 # r1cs_pf_test examples/edwardsAdd.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
 # r1cs_pf_test examples/plus.py
-r1cs_pf_test examples/pack.py
+# r1cs_pf_test examples/pack.py
+# r1cs_pf_test examples/sum.py

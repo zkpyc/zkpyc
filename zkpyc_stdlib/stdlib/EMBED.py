@@ -1,6 +1,6 @@
 
 from zk_types.types import Array, field # zk_ignore
-from typing import Any, List #zk_ignore
+from typing import Union, Any, List #zk_ignore
 from math import floor, log2 #zk_ignore
 
 # These functions are not run by ZKPyC as they are handled internally.
@@ -50,3 +50,7 @@ def pack(i) -> field:
 
 def get_field_size() -> int:
     return floor(log2(field.modulus)) + 1 # type: ignore
+
+
+def sum(x: Array[Union[int, field], Any]) -> Union[int, field]:
+    return sum(x)
