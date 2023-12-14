@@ -271,6 +271,16 @@ impl<'a> PyGen<'a> {
                     field_to_bits(args.pop().unwrap(), nbits)
                 }
             }
+            "pack" => {
+                if args.len() != 1 {
+                    Err(format!(
+                        "Got {} args to EMBED/unpack, expected 1",
+                        args.len()
+                    ))
+                } else {
+                    field_from_bits(args.pop().unwrap())
+                }
+            }
             "bit_array_le" => {
                 if args.len() != 2 {
                     Err(format!(
@@ -1144,12 +1154,12 @@ impl<'a> PyGen<'a> {
                     (PathBuf::new(), String::new())
                 };
                 let exp_ty = self.lhs_ty_take().and_then(|ty| Some(ty));
-                if p.args.is_empty() && p.keywords.is_empty() {
-                    self.err(
-                        format!("Callable requires either arguments or keywords."),
-                        &p.range(),
-                    )
-                }
+                // if p.args.is_empty() && p.keywords.is_empty() {
+                //     self.err(
+                //         format!("Callable requires either arguments or keywords."),
+                //         &p.range(),
+                //     )
+                // }
                 // This is ugly but necessary for now:
                 // Since fields are not natively supported, we both check if f_name == "field"
                 // and if the argument is ast::Expr::Constant. We do this instead of typecasting from

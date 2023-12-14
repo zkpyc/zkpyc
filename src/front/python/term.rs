@@ -929,6 +929,30 @@ pub fn uint_from_bits(u: PyTerm) -> Result<PyTerm, String> {
     }
 }
 
+pub fn field_from_bits(u: PyTerm) -> Result<PyTerm, String> {
+    match &u.ty {
+        Ty::Array(bits, elem_ty) if **elem_ty == Ty::Bool => {
+            if *bits <= cfg().field().modulus().significant_bits() as usize {
+                Ok(PyTerm::new(
+                    Ty::Field,
+                    term![Op::UbvToPf(default_field());
+                        term(
+                            Op::BvConcat,
+                            u.unwrap_array_ir()?
+                                .into_iter()
+                                .map(|z: Term| -> Term { term![Op::BoolToBv; z] })
+                                .collect(),
+                        )
+                    ],
+                ))
+            } else {
+                Err(format!("Cannot do field-from-bits on len {bits} array"))
+            }
+        },
+        u => Err(format!("Cannot do field-from-bits on {u}")),
+    }
+}
+
 pub fn field_to_bits(f: PyTerm, n: usize) -> Result<PyTerm, String> {
     match &f.ty {
         Ty::Field => uint_to_bits(PyTerm::new(Ty::Uint(n), term![Op::PfToBv(n); f.term])),
