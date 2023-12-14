@@ -25,7 +25,7 @@ def int_from_bits(bits: Array[bool, Any]) -> int:
 
 
 def unpack(i: field, N: int) -> Array[bool, Any]:
-    num = field.modulus + int(i) if int(i) < 0 else int(i)
+    num = field.modulus + int(i) if int(i) < 0 else int(i) # type: ignore
     bits = [bool(int(digit)) for digit in bin(num)[2:]]
     length = len(bits)
     if length < N:
@@ -35,6 +35,7 @@ def unpack(i: field, N: int) -> Array[bool, Any]:
     else:
         return bits[-N:] # type: ignore
     
+
 def pack(i) -> field:
     field_size = get_field_size()
     if len(i) > field_size:
@@ -44,7 +45,7 @@ def pack(i) -> field:
     num = int("".join(map(str, map(int, padded_i))), 2)
     original_value = num - field.modulus if num >= field.modulus else num # type: ignore
 
-    return original_value
+    return field(original_value) # type: ignore
 
 
 def get_field_size() -> int:
