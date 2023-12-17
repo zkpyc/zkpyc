@@ -52,5 +52,6 @@ def get_field_size() -> int:
     return floor(log2(field.modulus)) + 1 # type: ignore
 
 
+sum_ = sum # zk_ignore
 def sum(x: Array[Union[int, field], Any]) -> Union[int, field]:
-    return sum(x)
+    return sum_(x) # type: ignore
