@@ -205,10 +205,10 @@ pub fn write_constraints<F: PrimeField>(
         })
         .count();
 
-    // We include the 0 instance as well (might need to change later to include only if used in r1cs).
-    let instance_ids: Vec<u64> = (0..=public_variables_count).map(|x| x as u64).collect();
+    // We only include var_0 if it gets assigned the 1 value (in instance/witness generation stage)
+    let instance_ids: Vec<u64> = (1..=public_variables_count).map(|x| x as u64).collect();
 
-    // We add 1 to also count the 0 instance (subject to change).
+    // We add 1 to also count the var_0 instance (subject to change).
     let free_variable_id = (r1cs.vars.len() + 1) as u64;
     
     let mut cs = ZkifCS::<F>::new(workspace, instance_ids, free_variable_id);
