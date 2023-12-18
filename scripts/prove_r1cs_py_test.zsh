@@ -70,14 +70,14 @@ function r1cs_pf_test {
 # r1cs_pf_test examples/isolate_assert.py
 # r1cs_pf_test examples/many_cond.py
 # r1cs_pf_test examples/many_pub.py
-r1cs_pf_test examples/mm.py
+r1cs_pf_test examples/mm.py zk-interface
 # r1cs_pf_test examples/shear_point.py
 # r1cs_pf_test examples/from_bits.py
 # r1cs_pf_test examples/to_bits.py
 # r1cs_pf_test examples/mul.py
 # r1cs_pf_test examples/sha_temp1.py
 # r1cs_pf_test examples/test_sha256.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
-# r1cs_pf_test examples/plus_field.py
+# r1cs_pf_test examples/plus_field.py zk-interface
 # r1cs_pf_test examples/qeval.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
 # r1cs_pf_test examples/zkinterface.py zk-interface
 # r1cs_pf_test examples/test_pedersen.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617

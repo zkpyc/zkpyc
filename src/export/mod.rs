@@ -31,6 +31,8 @@ struct ZkifCS<F: PrimeField> {
     pub constraints_per_message: usize,
     statement: StatementBuilder<WorkspaceSink>,
     constraints: ConstraintSystem,
+    instance_ids: Vec<u64>,
+    free_variable_id: u64,
     phantom: PhantomData<F>,
 }
 
@@ -53,13 +55,15 @@ const DEFAULT_CONSTRAINTS_PER_MESSAGE: usize = usize::MAX;
 
 impl<F: PrimeField> ZkifCS<F> {
     /// Must call finish() to finalize the files in the workspace.
-    fn new(workspace: impl AsRef<Path>) -> Self {
+    fn new(workspace: impl AsRef<Path>, instance_ids: Vec<u64>, free_variable_id: u64) -> Self {
         let sink = WorkspaceSink::new(workspace).unwrap();
         let statement = StatementBuilder::new(sink);
         ZkifCS {
             constraints_per_message: DEFAULT_CONSTRAINTS_PER_MESSAGE,
             statement,
             constraints: ConstraintSystem::default(),
+            instance_ids,
+            free_variable_id,
             phantom: PhantomData,
         }
     }
@@ -68,6 +72,12 @@ impl<F: PrimeField> ZkifCS<F> {
         if self.constraints.constraints.len() > 0 {
             self.statement.push_constraints(self.constraints)?;
         }
+        let connections = Variables {
+            variable_ids: self.instance_ids,
+            values: None,
+        };
+        self.statement.header.instance_variables = connections;
+        self.statement.header.free_variable_id = self.free_variable_id;
         let negative_one = F::one().neg();
         let mut field_maximum = Vec::<u8>::new();
         write_scalar(&negative_one, &mut field_maximum);
@@ -184,7 +194,24 @@ pub fn write_constraints<F: PrimeField>(
     f_name: &str,
     workspace: &Path,
 ) -> zkinterface::Result<()> {
-    let mut cs = ZkifCS::<F>::new(workspace);
+
+    let public_variables_count = r1cs.vars
+        .iter()
+        .filter(|&var| {
+            match var.ty() {
+                VarType::Inst => true,
+                _ => false,
+            }
+        })
+        .count();
+
+    // We include the 0 instance as well (might need to change later to include only if used in r1cs).
+    let instance_ids: Vec<u64> = (0..=public_variables_count).map(|x| x as u64).collect();
+
+    // We add 1 to also count the 0 instance (subject to change).
+    let free_variable_id = (r1cs.vars.len() + 1) as u64;
+    
+    let mut cs = ZkifCS::<F>::new(workspace, instance_ids, free_variable_id);
     let vars = &r1cs.vars;
     for (_, (a, b, c)) in r1cs.constraints.iter().enumerate() {
         let lc = BilinearConstraint {
