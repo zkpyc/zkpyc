@@ -28,7 +28,7 @@ flatbuffers = "0.5.0"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11", optional = true }
-gmp-mpfr-sys = { version = "1.4", optional = true }
+gmp-mpfr-sys = { version = "1.4", optional = true, features = ["force-cross"] }
 byteorder = { version = "1", optional = true }
 zkinterface = "1.3.4"
 paste = "1.0"
