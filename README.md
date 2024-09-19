@@ -1,92 +1,92 @@
-# ZKPyC
+# ZKPyC - The Zero-Knowledge Proof Compiler for Python
 
+ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R1CS) description, used by modern zero-knowledge proof systems such as zk-SNARKs. The ZKPyC compiler leverages the [CirC](https://github.com/circify/circ) circuit compiler infrastructure to produce optimized and secure R1CS constraints.
 
+## Features
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://ci.tno.nl/gitlab/lorenzo.rota-tno/zkpyc.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://ci.tno.nl/gitlab/lorenzo.rota-tno/zkpyc/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
+- Compile Python 3.10 code (subset defined in `zkpyc.asdl`) to R1CS.
+- Export R1CS in two formats:
+  1. **CirC-IR serialization**: Compatible with CirC backends like Groth16, Mirage, and Spartan.
+  2. **zkInterface format**: Compatible with zkInterface-compatible backends.
+- Generate valid witnesses for the R1CS constraints.
+  
 ## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+
+To install ZKPyC, you need a stable Rust compiler. Install directly from GitHub using the following command:
+
+```bash
+cargo install --git https://github.com/lorenzorota/zkpyc.git zkpyc
+```
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+### Compiling Python Code to R1CS
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+To compile a Python file into an instance of R1CS:
+
+```bash
+zkpyc <file_name> r1cs --action setup --proof-impl <groth16 | zkinterface>
+```
+
+### Generating Witness
+
+To generate the witness for the corresponding R1CS instance:
+
+```bash
+zk --inputs <prover_inputs_file_name> --action prove --proof-impl <groth16 | zkinterface>
+```
+
+### Verifying Witness
+
+To verify the witness or generate the verifier's zkInterface file:
+
+```bash
+zk --inputs <verifier_inputs_file_name> --action verify --proof-impl <groth16 | zkinterface>
+```
+
+## Example Workflow
+
+### Groth16 Back-End
+
+```bash
+# Compile the program into an R1CS instance
+zkpyc examples/mm.py r1cs --action setup --proof-impl groth16
+
+# Generate the zero-knowledge proof
+zk --inputs examples/mm.py.pin --action prove --proof-impl groth16
+
+# Verify the witness in zero-knowledge
+zk --inputs examples/mm.py.vin --action verify --proof-impl groth16
+```
+
+### zkInterface Back-End (Ristretto255 Scalar Field)
+
+```bash
+# Compile the program into an R1CS instance
+zkpyc --field-custom-modulus 7237005577332262213973186563042994240857116359379907606001950938285454250989 examples/zkinterface.py --action setup --proof-impl zkinterface
+
+# Generate the zero-knowledge proof
+zk --field-custom-modulus 7237005577332262213973186563042994240857116359379907606001950938285454250989 examples/zkinterface.py.pin --action prove --proof-impl zkinterface
+
+# Verify the witness in zero-knowledge
+zk --field-custom-modulus 7237005577332262213973186563042994240857116359379907606001950938285454250989 examples/zkinterface.py.vin --action verify --proof-impl zkinterface
+```
 
 ## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+To contribute, simply submit a pull request. There are currently no strict guidelines, and any support is appreciated.
 
 ## License
-For open source projects, say how it is licensed.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See the `LICENSE-APACHE` and `LICENSE-MIT` files for more details.
+
+ZKPyC is primarily a front-end for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. It relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree.
+
+## Acknowledgements
+
+This work is based upon the author's [master's thesis](https://fse.studenttheses.ub.rug.nl/33067/), which was written at the University of Groningen and TNO (Department of Applied Cryptography & Quantum Algorithms).
+
+## Issues and Contact
+
+- For reporting issues, please use [GitHub Issues](https://github.com/lorenzorota/zkpyc/issues).
+- For direct inquiries, you can contact me at **<lorenzo.rota@hotmail.com>**.

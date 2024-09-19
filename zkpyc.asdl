@@ -1,0 +1,65 @@
+-- ASDL's 4 builtin types are:
+-- identifier, int, string, constant
+
+module ZKPyC
+{
+    mod = Module(stmt* body)
+
+    stmt = FunctionDef(identifier name, arguments args, 
+                       stmt* body, expr return)
+         | ClassDef(identifier name, stmt* body)
+         | Return(expr value)
+         | Assign(expr target, expr value)
+         | AugAssign(expr target, operator op, expr value)
+         | AnnAssign(expr target, type signature, expr? value, int simple)
+         | For(expr target, expr iter, stmt* body)
+         | Assert(expr test, expr? msg)
+         | Import(alias* names)
+         | ImportFrom(identifier? module, alias* names, int? level)
+
+    expr = BoolOp(boolop op, expr* values)
+         | BinOp(expr left, operator op, expr right)
+         | UnaryOp(unaryop op, expr operand)
+         | IfExp(expr test, expr body, expr orelse)
+         | ListComp(expr elt, comprehension generator)
+         | Compare(expr left, cmpop* ops, expr* comparators)
+         | Call(expr func, expr* args, keyword* keywords)
+         | Constant(constant value, string? kind)
+         | Attribute(expr value, identifier attr, expr_context ctx)
+         | Subscript(expr value, expr slice, expr_context ctx)
+         | Starred(expr value, expr_context ctx)
+         | Name(identifier id, expr_context ctx)
+         | List(expr* elts, expr_context ctx)
+         | Slice(expr? lower, expr? upper, expr? step)
+
+    access = Private(type signature)
+           | Public(type signature)
+           | (type signature)
+
+    type = Field 
+         | Bool 
+         | Int 
+         | Array(type signature, int size)
+         | (identifier class_name)
+
+    expr_context = Load | Store
+
+    boolop = And | Or
+
+    operator = Add | Sub | Mult | Div | Mod | Pow
+             | LShift | RShift | BitOr | BitXor | BitAnd
+
+    unaryop = Invert | Not | UAdd | USub
+
+    cmpop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot
+
+    comprehension = (expr target)
+
+    arguments = (arg* posonlyargs)
+
+    arg = (identifier arg, access visibility)
+
+    keyword = (identifier? arg, expr value)
+
+    alias = (identifier name, identifier? asname)
+}
