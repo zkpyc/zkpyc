@@ -9,7 +9,9 @@ ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R
   1. **CirC-IR serialization**: Compatible with CirC backends like Groth16, Mirage, and Spartan.
   2. **zkInterface format**: Compatible with zkInterface-compatible backends.
 - Generate valid witnesses for the R1CS constraints.
-  
+
+> **Note:** This software is a proof-of-concept and has not been audited. Use with caution
+
 ## Installation
 
 To install ZKPyC, you need a stable Rust compiler. Install directly from GitHub using the following command:
@@ -80,7 +82,7 @@ To contribute, simply submit a pull request. There are currently no strict guide
 
 This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See the `LICENSE-APACHE` and `LICENSE-MIT` files for more details.
 
-ZKPyC is primarily a front-end for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. It relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree.
+> **Note**: ZKPyC is primarily a front-end for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. The compiler relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree. Lastly, the standard library (stdlib) in this project is a migration of the [ZoKrates standard library](https://github.com/Zokrates/ZoKrates/tree/develop/zokrates_stdlib) to Python, with some small additions and omissions.
 
 ## Acknowledgements
 
