@@ -1,3 +1,5 @@
+<img src="zkpyc-logo.svg" width="100%" height="180">
+
 # ZKPyC - The Zero-Knowledge Proof Compiler for Python
 
 ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R1CS) description, used by modern zero-knowledge proof systems such as zk-SNARKs. The ZKPyC compiler leverages the [CirC](https://github.com/circify/circ) circuit compiler infrastructure to produce optimized and secure R1CS constraints.
@@ -87,6 +89,8 @@ This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See
 ## Acknowledgements
 
 This work is based upon the author's [master's thesis](https://fse.studenttheses.ub.rug.nl/33067/), which was written at the University of Groningen and TNO (Department of Applied Cryptography & Quantum Algorithms).
+
+The logo used in this repository, `zkpyc-logo.svg`, is a derivative of the official Python logo. Usage of the derived logo has been approved by the Python Software Foundation (PSF) under the terms of their [trademark usage policy](https://www.python.org/psf/trademarks/).
 
 ## Issues and Contact
 
