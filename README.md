@@ -2,14 +2,14 @@
 
 # ZKPyC - The Zero-Knowledge Proof Compiler for Python
 
-ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R1CS) description, used by modern zero-knowledge proof systems such as zk-SNARKs. The ZKPyC compiler leverages the [CirC](https://github.com/circify/circ) circuit compiler infrastructure to produce optimized and secure R1CS constraints.
+ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R1CS) description, used by modern zero-knowledge (ZK) proof systems such as zk-SNARKs. The ZKPyC compiler leverages the [CirC](https://github.com/circify/circ) circuit compiler infrastructure to produce optimized and secure R1CS constraints.
 
 ## Features
 
 - Compile Python 3.10 code (subset defined in `zkpyc.asdl`) to R1CS.
 - Export R1CS in two formats:
-  1. **CirC-IR serialization**: Compatible with CirC backends like Groth16, Mirage, and Spartan.
-  2. **zkInterface format**: Compatible with zkInterface-compatible backends.
+  1. **CirC-IR serialization**: Compatible with ZK proof system backends directly supported by CirC, such as Groth16, Mirage, and Spartan.
+  2. **zkInterface format**: Compatible with ZK proof system backends that support R1CS constraints in the [zkInterface format](https://github.com/QED-it/zkinterface).
 - Generate valid witnesses for the R1CS constraints.
 
 > **Note:** This software is a proof-of-concept and has not been audited. Use with caution
@@ -84,7 +84,7 @@ To contribute, simply submit a pull request. There are currently no strict guide
 
 This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See the `LICENSE-APACHE` and `LICENSE-MIT` files for more details.
 
-> **Note**: ZKPyC is primarily a front-end for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. The compiler relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree. Lastly, the standard library (stdlib) in this project is a migration of the [ZoKrates standard library](https://github.com/Zokrates/ZoKrates/tree/develop/zokrates_stdlib) to Python, with some small additions and omissions.
+> **Note**: The ZKPyC compiler is primarily a compiler frontend implementation for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. The compiler relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree. Lastly, the standard library (stdlib) in this project is a migration of the [ZoKrates standard library](https://github.com/Zokrates/ZoKrates/tree/develop/zokrates_stdlib) to Python, with some small additions and omissions.
 
 ## Acknowledgements
 
