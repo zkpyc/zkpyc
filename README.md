@@ -82,9 +82,7 @@ To contribute, simply submit a pull request. There are currently no strict guide
 
 ## License
 
-This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See the `LICENSE-APACHE` and `LICENSE-MIT` files for more details.
-
-> **Note**: The ZKPyC compiler is primarily a compiler frontend implementation for the [CirC](https://github.com/circify/circ) project and involves modifications of the CirC-ZoKrates implementation. The compiler relies on the [RustPython parser](https://github.com/RustPython/Parser) for translating Python code into an abstract syntax tree. Lastly, the standard library (stdlib) in this project is a migration of the [ZoKrates standard library](https://github.com/Zokrates/ZoKrates/tree/develop/zokrates_stdlib) to Python, with some small additions and omissions.
+This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See the `LICENSE-APACHE` and `LICENSE-MIT` files for more details. See `NOTICE` for information on software derivations and their respective licenses.
 
 ## Acknowledgements
 
