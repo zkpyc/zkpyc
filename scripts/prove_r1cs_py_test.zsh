@@ -6,8 +6,8 @@ disable -r time
 
 # cargo build --release
 
-BIN=./target/debug/zkpyc
-ZK_BIN=./target/debug/zk
+BIN=/Users/lorenzorota/.cargo/bin/zkpyc
+ZK_BIN=/Users/lorenzorota/.cargo/bin/zk
 
 case "$OSTYPE" in 
     darwin*)
