@@ -1,0 +1,12 @@
+include README.md
+include pyproject.toml
+
+recursive-include src/rust Cargo.toml Cargo.lock *.rs
+prune docs/_build
+recursive-include tests *.py
+exclude src/rust/target
+recursive-exclude src/rust/target *
+
+recursive-exclude .github *
+
+exclude ci-constraints-requirements.txt mypy.ini

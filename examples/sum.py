@@ -1,5 +1,5 @@
 from zk_types.types import Private, Public, Array, field # zk_ignore
-from EMBED import sum
+from zkpyc.stdlib.EMBED import sum
 
 class IntOrField:
     sum_field: field

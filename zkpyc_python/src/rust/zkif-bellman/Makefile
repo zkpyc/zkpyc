@@ -1,0 +1,2 @@
+ci:
+	cargo test

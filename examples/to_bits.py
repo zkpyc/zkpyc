@@ -1,5 +1,5 @@
 from zk_types.types import Private, Array, field # zk_ignore
-from utils.casts.int_to_bits import main as to_bits
+from zkpyc.stdlib.utils.casts.int_to_bits import to_bits
 
 def main(inputs: Private[Array[int, 16]]) -> Array[bool, 512]:
 	out: Array[bool, 512] = [

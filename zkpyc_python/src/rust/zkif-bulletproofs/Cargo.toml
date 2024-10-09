@@ -1,0 +1,54 @@
+[package]
+name = "zkinterface_bulletproofs"
+version = "1.0.2"
+authors = ["Cathie Yun <cathieyun@gmail.com>", 
+           "Henry de Valence <hdevalence@hdevalence.ca>",
+           "Oleg Andreev <oleganza@gmail.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/dalek-cryptography/bulletproofs"
+categories = ["cryptography"]
+keywords = ["cryptography", "ristretto", "zero-knowledge", "bulletproofs"]
+description = "A pure-Rust implementation of Bulletproofs using Ristretto"
+
+[dependencies]
+curve25519-dalek = { version = "1.0.3", features = ["serde"] }
+subtle = "2"
+sha3 = "0.8"
+digest = "0.8"
+rand = "0.6"
+byteorder = "1"
+serde = "1"
+serde_derive = "1"
+bincode = "1"
+failure = "0.1"
+merlin = "1.1"
+clear_on_drop = "0.2"
+zkinterface = { version = "1.3.3", optional = true }
+
+[dev-dependencies]
+hex = "0.3"
+criterion = "0.2"
+rand_chacha = "0.1"
+
+[features]
+default = ["yoloproofs"]
+avx2_backend = ["curve25519-dalek/avx2_backend"]
+# Disable the yoloproofs feature for the released crate, so that it's not possible for someone to publish a crate using R1CS proofs yet.
+yoloproofs = ["zkinterface"]
+
+[[test]]
+name = "range_proof"
+
+[[test]]
+name = "r1cs"
+required-features = ["yoloproofs"]
+
+[[bench]]
+name = "range_proof"
+harness = false
+
+[[bench]]
+name = "r1cs"
+harness = false
+required-features = ["yoloproofs"]

@@ -1,0 +1,9 @@
+[package]
+name = "zkpyc_stdlib"
+version = "0.1.0"
+authors = ["Lorenzo Rota <lorenzo.rota@hotmail.com>"]
+edition = "2021"
+links = "zkpyc_stdlib"
+
+[build-dependencies]
+fs_extra = "1.1.0"

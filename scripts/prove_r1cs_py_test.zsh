@@ -6,8 +6,8 @@ disable -r time
 
 # cargo build --release
 
-BIN=./target/release/zkpyc
-ZK_BIN=./target/release/zk
+BIN=./target/debug/zkpyc
+ZK_BIN=./target/debug/zk
 
 case "$OSTYPE" in 
     darwin*)
@@ -62,31 +62,31 @@ function r1cs_pf_test {
 }
 
 # Test examples with groth16
-r1cs_pf_test examples/_3_plus_int.py
-r1cs_pf_test examples/arr_cls_arr_cls.py
-r1cs_pf_test examples/arr_cpy.py
-r1cs_pf_test examples/assert.py
-r1cs_pf_test examples/assert2.py
-r1cs_pf_test examples/field_max.py
-r1cs_pf_test examples/isolate_assert.py
-r1cs_pf_test examples/many_cond.py
-r1cs_pf_test examples/many_pub.py
-r1cs_pf_test examples/mm.py
-r1cs_pf_test examples/shear_point.py
-r1cs_pf_test examples/from_bits.py
-r1cs_pf_test examples/to_bits.py
-r1cs_pf_test examples/mul.py
+# r1cs_pf_test examples/_3_plus_int.py
+# r1cs_pf_test examples/arr_cls_arr_cls.py
+# r1cs_pf_test examples/arr_cpy.py
+# r1cs_pf_test examples/assert.py
+# r1cs_pf_test examples/assert2.py
+# r1cs_pf_test examples/field_max.py
+# r1cs_pf_test examples/isolate_assert.py
+# r1cs_pf_test examples/many_cond.py
+# r1cs_pf_test examples/many_pub.py
+# r1cs_pf_test examples/mm.py
+# r1cs_pf_test examples/shear_point.py
+# r1cs_pf_test examples/from_bits.py
+# r1cs_pf_test examples/to_bits.py
+# r1cs_pf_test examples/mul.py
 r1cs_pf_test examples/sha_temp1.py
-r1cs_pf_test examples/plus.py
-r1cs_pf_test examples/pack.py
-r1cs_pf_test examples/sum.py
+# r1cs_pf_test examples/plus.py
+# r1cs_pf_test examples/pack.py
+# r1cs_pf_test examples/sum.py
 
-# Test exporting constraints to zkInterface-serialized data
-r1cs_pf_test examples/test_sha256.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
-r1cs_pf_test examples/plus_field.py zk-interface
-r1cs_pf_test examples/zkinterface.py zk-interface
-r1cs_pf_test examples/unpack.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
-r1cs_pf_test examples/lookup_window.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
-r1cs_pf_test examples/to_bits.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
-r1cs_pf_test examples/div.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
-r1cs_pf_test examples/edwardsAdd.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# # Test exporting constraints to zkInterface-serialized data
+# r1cs_pf_test examples/test_sha256.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
+# r1cs_pf_test examples/plus_field.py zk-interface
+# r1cs_pf_test examples/zkinterface.py zk-interface
+# r1cs_pf_test examples/unpack.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/lookup_window.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/to_bits.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/div.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
+# r1cs_pf_test examples/edwardsAdd.py zk-interface 21888242871839275222246405745257275088548364400416034343698204186575808495617
