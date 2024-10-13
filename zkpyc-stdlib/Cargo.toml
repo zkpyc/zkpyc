@@ -1,9 +1,12 @@
 [package]
 name = "zkpyc-stdlib"
-version = "0.1.0"
-authors = ["Lorenzo Rota <lorenzo.rota@hotmail.com>"]
+version = "0.1.0-dev"
 edition = "2021"
-links = "zkpyc_stdlib"
+description = "Standard library for the ZKPyC compiler."
+license = "LGPL-3.0"
+repository = "https://github.com/zkpyc/zkpyc"
+authors = ["Lorenzo Rota <lorenzo.rota@hotmail.com>"]
 
 [dependencies]
 include_dir = "0.7"
+log = "0.4"

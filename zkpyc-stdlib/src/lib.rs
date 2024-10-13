@@ -1,4 +1,5 @@
 use include_dir::{include_dir, Dir};
+use log::debug;
 use std::fs;
 use std::path::Path;
 
@@ -17,8 +18,7 @@ impl StdLib {
 
         // Embed version number in version.txt
         let version_file_path = stdlib_output_dir.join("version.txt");
-        fs::write(version_file_path, VERSION)
-            .expect("Failed to write stdlib version file");
+        fs::write(version_file_path, VERSION).expect("Failed to write stdlib version file");
     }
 
     // Helper function to copy directories and files recursively
@@ -27,16 +27,21 @@ impl StdLib {
             match entry {
                 include_dir::DirEntry::Dir(sub_dir) => {
                     let sub_dir_output_path = output_dir.join(sub_dir.path());
-                    fs::create_dir_all(&sub_dir_output_path)
-                        .unwrap_or_else(|_err| panic!("Failed to create subdirectory {}", &sub_dir_output_path.display()));
+                    fs::create_dir_all(&sub_dir_output_path).unwrap_or_else(|_err| {
+                        panic!(
+                            "Failed to create subdirectory {}",
+                            &sub_dir_output_path.display()
+                        )
+                    });
                     Self::copy_dir_recursive(sub_dir, &output_dir);
-                    // println!("Copied: {}", &sub_dir_output_path.display());
+                    debug!("Copied: {}", &sub_dir_output_path.display());
                 }
                 include_dir::DirEntry::File(file) => {
                     let file_output_path = output_dir.join(file.path());
-                    fs::write(&file_output_path, file.contents())
-                        .unwrap_or_else(|_err| panic!("Failed to write file {}", &file_output_path.display()));
-                    // println!("Copied: {}", &file_output_path.display());
+                    fs::write(&file_output_path, file.contents()).unwrap_or_else(|_err| {
+                        panic!("Failed to write file {}", &file_output_path.display())
+                    });
+                    debug!("Copied: {}", &file_output_path.display());
                 }
             }
         }
