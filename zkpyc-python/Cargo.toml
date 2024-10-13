@@ -1,10 +1,9 @@
 [package]
-name = "zkpyc_python"
+name = "zkpyc-python"
 version = "0.1.0"
 authors = ["Lorenzo Rota"]
 edition = "2021"
 publish = false
-# This specifies the MSRV
 rust-version = "1.63.0"
 
 [dependencies]
@@ -14,35 +13,35 @@ pyo3 = { version = "0.20", features = ["abi3-py37"] }
 pythonize = { version = "0.20" }
 rug = { version = "1.11" }
 bincode = "1"
-zkpyc = { git = "https://github.com/lorenzorota/zkpyc" }
+zkpyc-core = { git = "https://github.com/lorenzorota/zkpyc.git" }
 circ = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
 circ_fields = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
 circ_opt = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
 circ_hc = { git = "https://github.com/circify/circ.git", rev = "a26533ba", default-features = false, features = ["rc", "lru"]}
 curve25519-dalek = {version = "3.2.0", features = ["serde"], optional = true}
 zkinterface = { version = "1.3.4" }
-zkinterface_bellman = { path = "zkif-bellman" }
-zkinterface_bulletproofs = { path = "zkif-bulletproofs", features = ["yoloproofs"] }
-
+zkinterface_bellman = { path = "rust/third_party/zkif-bellman" }
+zkinterface_bulletproofs = { path = "rust/third_party/zkif-bulletproofs", features = ["yoloproofs"] }
 
 [build-dependencies]
 cc = "1.0.83"
-zkpyc_stdlib = { git = "https://github.com/lorenzorota/zkpyc" }
 fs_extra = "1.1.0"
+zkpyc-stdlib = { git = "https://github.com/lorenzorota/zkpyc.git" }
 
 [features]
 extension-module = ["pyo3/extension-module"]
 default = ["extension-module", "curve25519-dalek"]
 
 [lib]
-name = "zkpyc_rust"
+name = "zkpyc_python_rust"
 crate-type = ["cdylib"]
+path = "rust/src/lib.rs"
 
 [profile.release]
 overflow-checks = true
 
-[workspace]
-members = [
-    "zkif-bellman",
-    "zkif-bulletproofs"
-]
+#[workspace]
+#members = [
+#    "rust/third_party/zkif-bellman",
+#    "rust/third_party/zkif-bulletproofs"
+#]

@@ -1,5 +1,5 @@
 use pyo3::{Python, types::{PyList, PyTuple}, PyResult, exceptions};
-use zkpyc::utilities::r1cs::{Var, VarType};
+use zkpyc_core::utilities::r1cs::{Var, VarType};
 
 // Function to convert Vec<Var> to Python object
 pub fn vec_of_var_to_py(py: Python, input: Vec<Var>) -> &PyList {

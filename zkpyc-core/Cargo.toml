@@ -1,5 +1,5 @@
 [package]
-name = "zkpyc"
+name = "zkpyc-core"
 version = "0.1.0"
 authors = ["Lorenzo Rota <lorenzo.rota@hotmail.com>"]
 edition = "2021"
@@ -45,8 +45,8 @@ curve25519-dalek = {version = "3.2.0", features = ["serde"], optional = true}
 rustpython-parser = { version = "0.3.0" }
 regex = "1.10"
 itertools = "0.10.0"
-# dependency for ZKPyC stdlib
-zkpyc_stdlib = { path = "/Users/lorenzorota/Projects/Personal/zkpyc/zkpyc_stdlib" }
+dirs = { version = "3.0.1" }
+zkpyc-stdlib = { git = "https://github.com/lorenzorota/zkpyc.git" }
 
 [features]
 default = ["r1cs", "bellman", "smt", "typed-arena", "petgraph", "curve25519-dalek"]

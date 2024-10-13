@@ -1,0 +1,12 @@
+include README.md
+include pyproject.toml
+include Cargo.toml
+recursive-include rust *
+recursive-include python *
+recursive-include tests *.py
+prune docs/_build
+exclude target
+recursive-exclude target *
+recursive-exclude .github *
+recursive-exclude .DS_Store *
+exclude ci-constraints-requirements.txt mypy.ini

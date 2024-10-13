@@ -4,10 +4,10 @@ set -ex
 
 disable -r time
 
-# cargo build --release
+# cargo build
 
-BIN=/Users/lorenzorota/.cargo/bin/zkpyc
-ZK_BIN=/Users/lorenzorota/.cargo/bin/zk
+BIN=./target/debug/zkpyc
+ZK_BIN=./target/debug/zk
 
 case "$OSTYPE" in 
     darwin*)

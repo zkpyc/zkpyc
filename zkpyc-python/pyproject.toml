@@ -1,6 +1,5 @@
 [build-system]
 requires = [
-    # First version of setuptools to support pyproject.toml configuration
     "setuptools>=61.0.0",
     "wheel",
     "setuptools-rust>=1.7.0",
@@ -17,8 +16,6 @@ description = "Zero-Knowledge Proof Compiler and Toolkit."
 readme = "README.md"
 license = {text = "Apache-2.0 OR MIT"}
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
     "Operating System :: POSIX",
@@ -34,7 +31,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    # Must be kept in sync with `build-system.requires`
     "mpyc >=0.9",
     "gmpy2 >= 2.0",
 ]
@@ -46,34 +42,12 @@ dependencies = [
 #issues = "tba"
 #changelog = "tba"
 
-[tool.setuptools]
-zip-safe = false
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["zkpyc*"]
+[tool.setuptools.packages]
+find = { where = ["python"]}
+#include = ["zkpyc*"]
 
 [[tool.setuptools-rust.ext-modules]]
 target = "zkpyc.bindings._rust"
-path = "src/rust/Cargo.toml"
+#path = "rust/Cargo.toml"
 py-limited-api = true
 rust-version = ">=1.63.0"
-
-[tool.mypy]
-show_error_codes = true
-check_untyped_defs = true
-no_implicit_reexport = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_unused_configs = true
-strict_equality = true
-
-# [tool.check-sdist]
-# git-only = [
-#     "vectors/*",
-#     "release.py",
-#     "ci-constraints-requirements.txt",
-#     ".gitattributes",
-#     ".gitignore",
-# ]

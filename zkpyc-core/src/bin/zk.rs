@@ -3,21 +3,21 @@ use circ::cfg::{
     CircOpt,
 };
 use std::path::{PathBuf, Path};
-use zkpyc::{export::{self, prepare_verifier_statements, prepare_prover_statements}, utilities::{scalar_fields::PrimeField, proof::{deserialize_from_file, value_map_from_path}}};
+use zkpyc_core::{export::{self, prepare_verifier_statements, prepare_prover_statements}, utilities::{scalar_fields::PrimeField, proof::{deserialize_from_file, value_map_from_path}}};
 use circ::cfg::cfg;
 
 #[cfg(feature = "bellman")]
 use bls12_381::Bls12;
 #[cfg(feature = "bellman")]
-use zkpyc::utilities::{bellman::Bellman, mirage::Mirage, proof::ProofSystem, r1cs::{ProverData, VerifierData}};
+use zkpyc_core::utilities::{bellman::Bellman, mirage::Mirage, proof::ProofSystem, r1cs::{ProverData, VerifierData}};
 
 #[cfg(feature = "spartan")]
 use circ::ir::term::text::parse_value_map;
 #[cfg(feature = "spartan")]
 use circ::target::r1cs::spartan;
 
-use zkpyc::utilities::scalar_fields::bls12_381::Bls12_381;
-use zkpyc::utilities::scalar_fields::bn256::Bn256;
+use zkpyc_core::utilities::scalar_fields::bls12_381::Bls12_381;
+use zkpyc_core::utilities::scalar_fields::bn256::Bn256;
 use curve25519_dalek::scalar::Scalar as Curve25519;
 
 

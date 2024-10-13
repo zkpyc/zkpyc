@@ -801,16 +801,16 @@ pub fn array_select(array: PyTerm, idx: PyTerm) -> Result<PyTerm, String> {
     }
 }
 
-pub fn mut_array_store(array: PyTerm, idx: PyTerm, val: PyTerm, cond: Term) -> Result<PyTerm, String> {
-    if !matches!(array.ty, Ty::MutArray(_) | Ty::Array(..)) {
-        return Err(format!(
-            "Can only call mut_array_store on arrays, not {array}"
-        ));
-    }
-    let i = coerce_to_field(idx).map_err(|s| format!("{s}: mutable array index"))?;
-    let v = coerce_to_field(val).map_err(|s| format!("{s}: mutable array value"))?;
-    Ok(PyTerm::new(array.ty, term![Op::CStore; array.term, i, v, cond]))
-}
+// pub fn mut_array_store(array: PyTerm, idx: PyTerm, val: PyTerm, cond: Term) -> Result<PyTerm, String> {
+//     if !matches!(array.ty, Ty::MutArray(_) | Ty::Array(..)) {
+//         return Err(format!(
+//             "Can only call mut_array_store on arrays, not {array}"
+//         ));
+//     }
+//     let i = coerce_to_field(idx).map_err(|s| format!("{s}: mutable array index"))?;
+//     let v = coerce_to_field(val).map_err(|s| format!("{s}: mutable array value"))?;
+//     Ok(PyTerm::new(array.ty, term![Op::CStore; array.term, i, v, cond]))
+// }
 
 pub fn array_store(array: PyTerm, idx: PyTerm, val: PyTerm) -> Result<PyTerm, String> {
     if matches!(&array.ty, Ty::Array(_, _)) && matches!(&idx.ty, Ty::Uint(_) | Ty::Field) {

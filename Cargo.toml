@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
-    "zkpyc_compiler",
-    "zkpyc_stdlib",
+    "zkpyc-core",
+    "zkpyc-stdlib",
 ]
+exclude = [ "zkpyc-python" ]

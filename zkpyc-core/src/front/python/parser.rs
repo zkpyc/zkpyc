@@ -4,14 +4,15 @@ use rustpython_parser::{parse, ast::{self, text_size::TextRange, TextSize}, Mode
 use circ::circify::includer::Loader;
 
 use log::debug;
-use std::{collections::HashMap, env, fs, path::{Path, PathBuf}};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}};
 use std::fs::File;
 use std::io::Read;
 use std::env::var_os;
 use typed_arena::Arena;
 use regex::Regex;
+use dirs::data_dir;
+use zkpyc_stdlib::StdLib;
 
-use zkpyc_stdlib::get_artifacts_path;
 
 #[derive(Default)]
 pub struct PyGadgets {
@@ -20,7 +21,7 @@ pub struct PyGadgets {
 
 impl PyGadgets {
     pub fn new() -> Self {
-        // Check if the environment variable ZKPYC_STDLIB_PATH is set
+        // Get path from ZKPYC_STDLIB_PATH env var
         if let Some(p) = var_os("ZKPYC_STDLIB_PATH") {
             let p = PathBuf::from(p);
             if p.exists() {
@@ -33,14 +34,31 @@ impl PyGadgets {
             }
         }
 
-        // If ZKPYC_STDLIB_PATH is not set, use the get_artifacts_path function
-        let stdlib_path = get_artifacts_path();
-        println!("{}", &stdlib_path.display());
-        if stdlib_path.exists() {
-            return Self { path: stdlib_path };
+        // If ZKPYC_STDLIB_PATH is not set then check data_dir
+        let data_path = data_dir().unwrap();
+        let stdlib_path = data_path.join("zkpyc");
+        let version_file_path = stdlib_path.join("stdlib/version.txt");
+
+        // Copy stdlib into data_path when run for the first time
+        if !stdlib_path.exists() {
+            debug!("First time run; copying stdlib into {}", &stdlib_path.display());
+            StdLib::copy_stdlib(&stdlib_path.as_path());
+            return Self { path: data_path };
         }
 
-        // Fallback: search through the current directory and its ancestors
+        // If stdlib exists in data_path, only modify if the version differs
+        if let Ok(stored_version) = fs::read_to_string(&version_file_path) {
+            if stored_version.trim() != StdLib::version() {
+                debug!("Stdlib version has changed from {} to {}; updating stdlib...", stored_version.trim(), StdLib::version());
+                StdLib::copy_stdlib(&stdlib_path.as_path());
+                return Self { path: data_path };
+            } else {
+                debug!("Stdlib version has not changed; no need to update stdlib.");
+                return Self { path: data_path };
+            }
+        } 
+
+        // As fallback option, search through the current directory and its ancestors
         let p = std::env::current_dir().unwrap().canonicalize().unwrap();
         assert!(p.is_absolute());
         let stdlib_subdirs = vec![

@@ -6,12 +6,12 @@ use circ_opt::{CircOpt,
     clap::Args,
 };
 use circ_opt::clap;
-use zkpyc::export::setup::ZkInterface;
+use zkpyc_core::export::setup::ZkInterface;
 use std::path::{Path, PathBuf};
-use zkpyc::front;
+use zkpyc_core::front;
 use crate::front::{FrontEnd, Mode};
 #[cfg(feature = "r1cs")]
-use zkpyc::utilities::{trans::to_r1cs, opt::reduce_linearities};
+use zkpyc_core::utilities::{trans::to_r1cs, opt::reduce_linearities};
 use circ::ir::term::{Node, Op, BV_LSHR, BV_SHL};
 use circ::ir::{
     opt::{opt, Opt},
@@ -33,7 +33,7 @@ use bellman::{
 use bls12_381::{Bls12, Scalar};
 // use curve25519_dalek::scalar::Scalar;
 #[cfg(feature = "bellman")]
-use zkpyc::utilities::{
+use zkpyc_core::utilities::{
     bellman::Bellman,
     mirage::Mirage,
     proof::{CommitProofSystem, ProofSystem},
