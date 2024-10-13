@@ -33,7 +33,7 @@ extension-module = ["pyo3/extension-module"]
 default = ["extension-module", "curve25519-dalek"]
 
 [lib]
-name = "zkpyc_python_rust"
+name = "_rust"
 crate-type = ["cdylib"]
 path = "rust/src/lib.rs"
 
