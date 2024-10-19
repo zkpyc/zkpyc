@@ -4,8 +4,6 @@ version = "0.1.0"
 authors = ["Lorenzo Rota <lorenzo.rota@hotmail.com>"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 # dependencies for CirC compiler infrastructure
 circ = { git = "https://github.com/circify/circ.git", rev = "a26533ba" }
@@ -46,7 +44,7 @@ rustpython-parser = { version = "0.3.0" }
 regex = "1.10"
 itertools = "0.10.0"
 dirs = { version = "3.0.1" }
-zkpyc-stdlib = { git = "https://github.com/lorenzorota/zkpyc.git" }
+zkpyc-stdlib = "0.1.0-dev"
 
 [features]
 default = ["r1cs", "bellman", "smt", "typed-arena", "petgraph", "curve25519-dalek"]

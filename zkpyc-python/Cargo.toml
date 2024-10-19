@@ -26,7 +26,7 @@ zkinterface_bulletproofs = { path = "rust/third_party/zkif-bulletproofs", featur
 [build-dependencies]
 cc = "1.0.83"
 fs_extra = "1.1.0"
-zkpyc-stdlib = { git = "https://github.com/lorenzorota/zkpyc.git" }
+zkpyc-stdlib = "0.1.0-dev"
 
 [features]
 extension-module = ["pyo3/extension-module"]

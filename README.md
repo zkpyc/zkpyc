@@ -19,7 +19,7 @@ ZKPyC is a compiler for a subset of Python 3.10 to a Rank-1 Constraint System (R
 To install ZKPyC, you need a stable Rust compiler. Install directly from GitHub using the following command:
 
 ```bash
-cargo install --git https://github.com/lorenzorota/zkpyc.git zkpyc
+cargo install --git https://github.com/zkpyc/zkpyc.git zkpyc-core
 ```
 
 ## Usage
