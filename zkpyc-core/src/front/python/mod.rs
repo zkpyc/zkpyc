@@ -499,9 +499,7 @@ impl<'a> PyGen<'a> {
             ast::Operator::BitOr => bitor,
             ast::Operator::BitXor => bitxor,
             ast::Operator::BitAnd => bitand,
-            ast::Operator::FloorDiv => {
-                unimplemented!("BinaryOperator {:#?} hasn't been implemented", o)
-            }
+            ast::Operator::FloorDiv => div
         }
     }
 

@@ -76,10 +76,12 @@ function r1cs_pf_test {
 # r1cs_pf_test examples/from_bits.py
 # r1cs_pf_test examples/to_bits.py
 # r1cs_pf_test examples/mul.py
-r1cs_pf_test examples/sha_temp1.py
+# r1cs_pf_test examples/sha_temp1.py
 # r1cs_pf_test examples/plus.py
 # r1cs_pf_test examples/pack.py
 # r1cs_pf_test examples/sum.py
+# r1cs_pf_test examples/int_div.py
+r1cs_pf_test examples/sudoku.py
 
 # # Test exporting constraints to zkInterface-serialized data
 # r1cs_pf_test examples/test_sha256.py zk-interface 7237005577332262213973186563042994240857116359379907606001950938285454250989
