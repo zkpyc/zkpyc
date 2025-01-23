@@ -574,7 +574,6 @@ fn neg_uint(a: Term) -> Term {
     term![Op::BvUnOp(BvUnOp::Neg); a]
 }
 
-// note: if circ doesn't support bitwise not then we won't have it in python
 pub fn neg(a: PyTerm) -> Result<PyTerm, String> {
     wrap_un_op("unary-", Some(neg_uint), Some(neg_field), None, a)
 }
@@ -1123,4 +1122,650 @@ impl Embeddable for Python {
         let size = check(&t).as_array().2;
         Self::T::new(Ty::MutArray(size), t)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use circ::cfg::cfg_or_default;
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
+
+    fn init_cfg() {
+        INIT.call_once(|| {
+            cfg_or_default();
+        });
+    }
+
+    fn extended_gcd_inverse(a: Integer, modulus: &Integer) -> Option<Integer> {
+        let (gcd, x, _) = a.extended_gcd(modulus.clone(), Integer::new());
+        if gcd == Integer::from(1) {
+            Some((x % modulus.clone() + modulus.clone()) % modulus.clone())
+        } else {
+            None
+        }
+    }
+
+    fn assert_bool_op<F>(op_func: F, term_a: Term, term_b: Term, expected: bool)
+    where
+        F: Fn(Term, Term) -> Term,
+    {
+        let result = op_func(term_a, term_b);
+        let folded_result = constant_fold(&result, &[]);
+        
+        if let Op::Const(Value::Bool(b)) = folded_result.op() {
+            assert_eq!(*b, expected, "Expected operation to yield {}", expected);
+        } else {
+            panic!("Expected constant Bool result, got {:?}", folded_result.op());
+        }
+    }
+
+    fn assert_unary_op<F>(op_func: F, term: Term, expected: Term)
+    where
+        F: Fn(Term) -> Term,
+    {
+        let result = op_func(term);
+        let folded_result = constant_fold(&result, &[]);
+
+        match (folded_result.op(), expected.op()) {
+            (Op::Const(Value::Bool(result_val)), Op::Const(Value::Bool(expected_val))) => {
+                assert_eq!(result_val, expected_val, "Expected Bool result to be {}", expected_val);
+            }
+            (Op::Const(Value::BitVector(result_bv)), Op::Const(Value::BitVector(expected_bv))) => {
+                assert_eq!(result_bv.uint(), expected_bv.uint(), "Expected BitVector result to be {}", expected_bv.uint());
+            }
+            (Op::Const(Value::Field(result_field)), Op::Const(Value::Field(expected_field))) => {
+                assert_eq!(result_field.i(), expected_field.i(), "Expected Field result to be {}", expected_field.i());
+            }
+            _ => panic!("Mismatched or non-constant types in unary operation result and expected value"),
+        }
+    }
+
+    fn assert_eq_base(a: PyTerm, b: PyTerm, expected: bool) {
+        match eq_base(a.clone(), b.clone()) {
+            Ok(term) => {
+                let folded_result = constant_fold(&term, &[]);
+                if let Op::Const(Value::Bool(b)) = folded_result.op() {
+                    assert_eq!(*b, expected, "Expected {} == {} to be {}", a, b, expected);
+                } else {
+                    panic!("Expected constant Bool result, got {:?}", folded_result.op());
+                }
+            }
+            Err(e) => {
+                if expected {
+                    panic!("Unexpected error: {}", e);
+                }
+            }
+        }
+    }
+
+    fn assert_shift_op<F>(op_func: F, term: PyTerm, shift_amount: PyTerm, expected: Integer)
+    where
+        F: Fn(PyTerm, PyTerm) -> Result<PyTerm, String>,
+    {
+        let result = op_func(term, shift_amount)
+            .expect("Shift operation failed");
+        let folded_result = constant_fold(&result.term, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &expected, "Expected shift result to be {}", expected);
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+
+    #[test]
+    fn test_add_uint() {
+        // Test if wrapping-around behavior works for 8 bit BitVector addition
+        let term_a = bv_lit(255, 8);
+        let term_b = bv_lit(128, 8);
+        let result = add_uint(term_a.clone(), term_b.clone());
+        
+        // Check if the result term evaluates to (255 + 128)u8 == 127
+        let folded_result = constant_fold(&result, &[]);
+
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(127));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_add_field() {
+        // Test if wrapping-around behavior works for field element addition
+        init_cfg();
+        let modulus = cfg().field().modulus();
+        let term_a = pf_lit_ir(modulus.clone() - 1);
+        let term_b = pf_lit_ir(2);
+        let result = add_field(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to ((modulus - 1) + 2) % modulus == 1
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::Field(fe)) = folded_result.op() {
+            assert_eq!(fe.i(), 1);
+        } else {
+            panic!("Expected constant Field result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_sub_uint() {
+        // Test if wrapping-around behavior works for 8-bit BitVector subtraction
+        let term_a = bv_lit(0, 8);
+        let term_b = bv_lit(1, 8);
+        let result = sub_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to (0 - 1)u8 == 255 (wraps around)
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(255));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_sub_field() {
+        // Test if wrapping-around behavior works for field element subtraction
+        init_cfg();
+        let modulus = cfg().field().modulus();
+        let term_a = pf_lit_ir(0);
+        let term_b = pf_lit_ir(1);
+        let result = sub_field(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to (0 - 1) % modulus == modulus - 1
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::Field(fe)) = folded_result.op() {
+            assert_eq!(fe.i(), modulus.clone() - 1);
+        } else {
+            panic!("Expected constant Field result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_mul_uint() {
+        // Test if wrapping-around behavior works for 8-bit BitVector multiplication
+        let term_a = bv_lit(16, 8);
+        let term_b = bv_lit(17, 8);
+        let result = mul_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to (16 * 17) % 256 == 16
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(16));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_mul_field() {
+        // Test if wrapping-around behavior works for field element multiplication
+        // Use the identity: (p-1)^2 == 1 mod p
+        init_cfg();
+        let modulus = cfg().field().modulus();
+        let term_a = pf_lit_ir(modulus.clone() - 1);
+        let term_b = pf_lit_ir(modulus.clone() - 1);
+        let result = mul_field(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to (modulus - 1) * (modulus - 1) % modulus == 1
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::Field(fe)) = folded_result.op() {
+            assert_eq!(fe.i(), 1);
+        } else {
+            panic!("Expected constant Field result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_div_uint() {
+        // Test division behavior in 8-bit BitVector
+        let term_a = bv_lit(10, 8);
+        let term_b = bv_lit(3, 8);
+        let result = div_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 10 / 3 == 3 in 8-bit unsigned integer division
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(3));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_div_field() {
+        // Test field division using elements that are not divisible as integers
+        // Example: 7 / 5
+        // Use euclidean algorithm to find 5^-1 mod p and check that 7 / 5 == 7 * 5^-1
+        init_cfg();
+        let modulus = cfg().field().modulus();
+        let term_a = pf_lit_ir(7);
+        let term_b = pf_lit_ir(5);
+        let result = div_field(term_a.clone(), term_b.clone());
+    
+        // Expected result: (7 * 5^-1) % p, where 5^-1 is the modular inverse of 5 mod p
+        let inverse_of_5 = extended_gcd_inverse(Integer::from(5), &modulus).expect("Modular inverse should exist");
+        let expected_result = (Integer::from(7) * inverse_of_5) % modulus;
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::Field(fe)) = folded_result.op() {
+            assert_eq!(fe.i(), expected_result);
+        } else {
+            panic!("Expected constant Field result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_rem_uint() {
+        // Test remainder behavior in 8-bit BitVector
+        let term_a = bv_lit(10, 8);
+        let term_b = bv_lit(3, 8);
+        let result = rem_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 10 % 3 == 1 in 8-bit unsigned integer division
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(1));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_rem_field() {
+        // Test field remainder behavior
+        init_cfg();
+        let term_a = pf_lit_ir(10);
+        let term_b = pf_lit_ir(3);
+        let result = rem_field(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 10 % 3 == 1 in the field
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::Field(fe)) = folded_result.op() {
+            assert_eq!(fe.i(), Integer::from(1));
+        } else {
+            panic!("Expected constant Field result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_bitand_uint() {
+        // Test bitwise AND operation in 8-bit BitVector
+        let term_a = bv_lit(0b1100_1100, 8);
+        let term_b = bv_lit(0b1010_1010, 8);
+        let result = bitand_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 0b1000_1000 (bitwise AND result)
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(0b1000_1000));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_bitor_uint() {
+        // Test bitwise OR operation in 8-bit BitVector
+        let term_a = bv_lit(0b1100_1100, 8);
+        let term_b = bv_lit(0b1010_1010, 8);
+        let result = bitor_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 0b1110_1110 (bitwise OR result)
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(0b1110_1110));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_bitxor_uint() {
+        // Test bitwise XOR operation in 8-bit BitVector
+        let term_a = bv_lit(0b1100_1100, 8);
+        let term_b = bv_lit(0b1010_1010, 8);
+        let result = bitxor_uint(term_a.clone(), term_b.clone());
+
+        // Check if the result term evaluates to 0b0110_0110 (bitwise XOR result)
+        let folded_result = constant_fold(&result, &[]);
+        if let Op::Const(Value::BitVector(bv)) = folded_result.op() {
+            assert_eq!(bv.uint(), &Integer::from(0b0110_0110));
+        } else {
+            panic!("Expected constant BitVector result, got {:?}", folded_result.op());
+        }
+    }
+
+    #[test]
+    fn test_or_bool() {
+        // Test logical OR operation between two boolean values
+        let term_true = leaf_term(Op::Const(Value::Bool(true)));
+        let term_false = leaf_term(Op::Const(Value::Bool(false)));
+
+        // Test all combinations for OR
+        assert_bool_op(or_bool, term_true.clone(), term_true.clone(), true);
+        assert_bool_op(or_bool, term_true.clone(), term_false.clone(), true);
+        assert_bool_op(or_bool, term_false.clone(), term_true.clone(), true);
+        assert_bool_op(or_bool, term_false.clone(), term_false.clone(), false);
+    }
+
+    #[test]
+    fn test_and_bool() {
+        // Test logical AND operation between two boolean values
+        let term_true = leaf_term(Op::Const(Value::Bool(true)));
+        let term_false = leaf_term(Op::Const(Value::Bool(false)));
+
+        // Test all combinations for AND
+        assert_bool_op(and_bool, term_true.clone(), term_true.clone(), true);
+        assert_bool_op(and_bool, term_true.clone(), term_false.clone(), false);
+        assert_bool_op(and_bool, term_false.clone(), term_true.clone(), false);
+        assert_bool_op(and_bool, term_false.clone(), term_false.clone(), false);
+    }
+
+    #[test]
+    fn test_eq_base_bool_literals() {
+        // Test equality between two boolean literals
+        let term_true = PyTerm::new(Ty::Bool, leaf_term(Op::Const(Value::Bool(true))));
+        let term_false = PyTerm::new(Ty::Bool, leaf_term(Op::Const(Value::Bool(false))));
+        assert_eq_base(term_true.clone(), term_true.clone(), true);
+        assert_eq_base(term_true.clone(), term_false.clone(), false);
+    }
+
+    #[test]
+    fn test_eq_base_field_literals() {
+        // Test equality between two field literals
+        init_cfg();
+        let term_field1 = PyTerm::new(Ty::Field, pf_lit_ir(1));
+        let term_field2 = PyTerm::new(Ty::Field, pf_lit_ir(2));
+
+        assert_eq_base(term_field1.clone(), term_field1.clone(), true);
+        assert_eq_base(term_field1.clone(), term_field2.clone(), false);
+
+        // Check that add(1,1) == 2
+        assert_eq_base(
+            add(term_field1.clone(), term_field1.clone()).expect("Expected a PyTerm."),
+            term_field2.clone(), 
+            true);
+    }
+
+    #[test]
+    fn test_eq_base_uint_literals() {
+        // Test equality between two uint literals
+        let term_u8_1 = PyTerm::new(Ty::Uint(8), bv_lit(1, 8));
+        let term_u8_2 = PyTerm::new(Ty::Uint(8), bv_lit(2, 8));
+        let term_u16_1 = PyTerm::new(Ty::Uint(16), bv_lit(1, 16));
+        
+        assert_eq_base(term_u8_1.clone(), term_u8_1.clone(), true);
+        assert_eq_base(term_u8_1.clone(), term_u8_2.clone(), false);
+
+        // Check that add(1,1) == 2
+        assert_eq_base(
+            add(term_u8_1.clone(), term_u8_1.clone()).expect("Expected a PyTerm."),
+            term_u8_2.clone(), 
+            true);
+
+        // Check for error on mismatched types
+        assert!(eq_base(term_u8_1.clone(), term_u16_1.clone()).is_err());
+    }
+
+    #[test]
+    fn test_eq_base_array_literals() {
+        // Test equality between two array literals
+        init_cfg();
+        let term_u8_1 = PyTerm::new(Ty::Uint(8), bv_lit(1, 8));
+        let term_u8_2 = PyTerm::new(Ty::Uint(8), bv_lit(2, 8));
+        let array1 = PyTerm::new_array(vec![term_u8_1.clone(), term_u8_2.clone()]).unwrap();
+        let array2 = PyTerm::new_array(vec![term_u8_1.clone(), term_u8_2.clone()]).unwrap();
+        let array3 = PyTerm::new_array(vec![term_u8_2.clone(), term_u8_2.clone()]).unwrap();
+
+        // Check equality for arrays with and without the same elements
+        assert_eq_base(array1.clone(), array2.clone(), true);
+        assert_eq_base(array1.clone(), array3.clone(), false);
+
+        // Check for error with different types
+        let term_u16_1 = PyTerm::new(Ty::Uint(16), bv_lit(1, 16));
+        let array_uint8 = PyTerm::new_array(vec![term_u8_1.clone(), term_u8_1.clone()]).unwrap();
+        let array_uint16 = PyTerm::new_array(vec![term_u16_1.clone(), term_u16_1.clone()]).unwrap();
+        assert!(eq_base(array_uint8.clone(), array_uint16.clone()).is_err());
+    }
+
+    #[test]
+    fn test_ult_uint() {
+        // Test unsigned less than between two 8-bit BitVectors
+        let term_a = bv_lit(5, 8);
+        let term_b = bv_lit(10, 8);
+        let term_c = bv_lit(5, 8);
+        assert_bool_op(ult_uint, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ult_uint, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ult_uint, term_a.clone(), term_c.clone(), false);
+    }
+
+    #[test]
+    fn test_ult_field() {
+        // Test unsigned less than between two field elements
+        init_cfg();
+        let term_a = pf_lit_ir(5);
+        let term_b = pf_lit_ir(10);
+        let term_c = pf_lit_ir(5);
+        assert_bool_op(ult_field, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ult_field, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ult_field, term_a.clone(), term_c.clone(), false);
+    }
+
+    #[test]
+    fn test_ule_uint() {
+        // Test unsigned less than or equal between two 8-bit BitVectors
+        let term_a = bv_lit(5, 8);
+        let term_b = bv_lit(10, 8);
+        let term_c = bv_lit(5, 8);
+        assert_bool_op(ule_uint, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ule_uint, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ule_uint, term_a.clone(), term_c.clone(), true);
+    }
+
+    #[test]
+    fn test_ule_field() {
+        // Test unsigned less than or equal between two field elements
+        init_cfg();
+        let term_a = pf_lit_ir(5);
+        let term_b = pf_lit_ir(10);
+        let term_c = pf_lit_ir(5);
+        assert_bool_op(ule_field, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ule_field, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ule_field, term_a.clone(), term_c.clone(), true);
+    }
+
+    #[test]
+    fn test_ugt_uint() {
+        // Test unsigned greater than between two 8-bit BitVectors
+        let term_a = bv_lit(10, 8);
+        let term_b = bv_lit(5, 8);
+        let term_c = bv_lit(10, 8);
+        assert_bool_op(ugt_uint, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ugt_uint, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ugt_uint, term_a.clone(), term_c.clone(), false);
+
+    }
+
+    #[test]
+    fn test_ugt_field() {
+        // Test unsigned greater than between two field elements
+        init_cfg();
+        let term_a = pf_lit_ir(10);
+        let term_b = pf_lit_ir(5);
+        let term_c = pf_lit_ir(10);
+        assert_bool_op(ugt_field, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(ugt_field, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(ugt_field, term_a.clone(), term_c.clone(), false);
+    }
+
+    #[test]
+    fn test_uge_uint() {
+        // Test unsigned greater than or equal between two 8-bit BitVectors
+        let term_a = bv_lit(10, 8);
+        let term_b = bv_lit(5, 8);
+        let term_c = bv_lit(10, 8);
+        assert_bool_op(uge_uint, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(uge_uint, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(uge_uint, term_a.clone(), term_c.clone(), true);
+    }
+
+    #[test]
+    fn test_uge_field() {
+         // Test unsigned greater than or equal between two field elements
+        init_cfg();
+        let term_a = pf_lit_ir(10);
+        let term_b = pf_lit_ir(5);
+        let term_c = pf_lit_ir(10);
+        assert_bool_op(uge_field, term_a.clone(), term_b.clone(), true);
+        assert_bool_op(uge_field, term_b.clone(), term_a.clone(), false);
+        assert_bool_op(uge_field, term_a.clone(), term_c.clone(), true);
+    }
+
+    #[test]
+    fn test_neg_uint() {
+        // Test negation behavior for 8-bit BitVector
+        // Negating 1 should yield 255 (two's complement in 8 bits)
+        let term = bv_lit(1,8);
+        let expected_result = bv_lit(255, 8);
+        assert_unary_op(neg_uint, term, expected_result);
+
+        // Negating 0 should still yield 0
+        let term_zero = bv_lit(0,8);
+        let expected_zero = bv_lit(0, 8);
+        assert_unary_op(neg_uint, term_zero, expected_zero);
+    }
+
+    #[test]
+    fn test_neg_field() {
+        // Test negation behavior for field element
+        init_cfg();
+        let modulus = cfg().field().modulus();
+
+        // Negating 1 in the field should yield modulus - 1
+        let term = pf_lit_ir(1);
+        let expected_result = pf_lit_ir(modulus.clone() - 1);
+        assert_unary_op(neg_field, term, expected_result);
+
+        // Negating 0 in the field should yield 0
+        let term_zero = pf_lit_ir(0);
+        let expected_zero = pf_lit_ir(0);
+        assert_unary_op(neg_field, term_zero, expected_zero);
+    }
+
+    #[test]
+    fn test_not_bool() {
+        // Test NOT operator for boolean element
+        // NOT true should be false
+        assert_unary_op(not_bool, bool_lit(true), bool_lit(false));
+
+        // NOT false should be true
+        assert_unary_op(not_bool, bool_lit(false), bool_lit(true));
+    }
+
+    #[test]
+    fn test_not_uint() {
+        // Test NOT operator for 8-bit BitVector
+        // NOT 0b0000_0001 should yield 0b1111_1110
+        let term = bv_lit(1, 8);
+        let expected_result = bv_lit(0b1111_1110, 8);
+        assert_unary_op(not_uint, term, expected_result);
+
+        // NOT 0b0000_0000 should yield 0b1111_1111
+        let term_zero = bv_lit(0, 8);
+        let expected_zero = bv_lit(0b1111_1111, 8);
+        assert_unary_op(not_uint, term_zero, expected_zero);
+    }
+
+    #[test]
+    fn test_const_value_bool() {
+        // Test const_value with boolean constants
+        let term_true = leaf_term(Op::Const(Value::Bool(true)));
+        let term_false = leaf_term(Op::Const(Value::Bool(false)));
+
+        assert_eq!(const_value(&term_true), Some(Value::Bool(true)));
+        assert_eq!(const_value(&term_false), Some(Value::Bool(false)));
+    }
+
+    #[test]
+    fn test_const_value_bitvector() {
+        // Test const_value with 8-bit BitVector constants
+        let term_u8_1 = bv_lit(1, 8);
+        let term_u8_255 = bv_lit(255, 8);
+
+        assert_eq!(const_value(&term_u8_1), bv_lit(1, 8).as_value_opt().map(|v| v.clone()));
+        assert_eq!(const_value(&term_u8_1), bv_lit(1, 8).as_value_opt().map(|v| v.clone()));
+        assert_eq!(const_value(&term_u8_255), bv_lit(255, 8).as_value_opt().map(|v| v.clone()));
+
+        // Test const_value with 16-bit BitVector constants
+        let term_u16_1024 = bv_lit(1024, 16);
+        assert_eq!(const_value(&term_u16_1024), bv_lit(1024, 16).as_value_opt().map(|v| v.clone()));
+    }
+
+    #[test]
+    fn test_const_value_field() {
+        init_cfg();
+        let modulus = cfg().field().modulus();
+
+        // Test const_value with field constants
+        let term_field_1 = pf_lit_ir(1);
+        let term_field_mod_minus_1 = pf_lit_ir(modulus.clone() - 1);
+
+        assert_eq!(const_value(&term_field_1), pf_lit_ir(1).as_value_opt().map(|v| v.clone()));
+        assert_eq!(const_value(&term_field_mod_minus_1), pf_lit_ir(modulus - 1).as_value_opt().map(|v| v.clone()));
+    }
+
+    #[test]
+    fn test_wrap_shift_left() {
+        // Test left shift (<<) on 8-bit BitVectors
+        let term = uint_lit(0b0000_0001, 8);
+        let shift_by_1 = uint_lit(1, 8);
+        let shift_by_7 = uint_lit(7, 8);
+
+        // 1 << 1 should yield 2
+        assert_shift_op(|a, b| wrap_shift("<<", BvBinOp::Shl, a, b), term.clone(), shift_by_1, Integer::from(0b0000_0010));
+
+        // 1 << 7 should yield 128
+        assert_shift_op(|a, b| wrap_shift("<<", BvBinOp::Shl, a, b), term.clone(), shift_by_7, Integer::from(0b1000_0000));
+
+        // Shifting by 0 should yield the same value
+        let shift_by_0 = uint_lit(0, 8);
+        assert_shift_op(|a, b| wrap_shift("<<", BvBinOp::Shl, a, b), term.clone(), shift_by_0, Integer::from(0b0000_0001));
+    }
+
+    #[test]
+    fn test_wrap_shift_right() {
+        // Test right shift (>>) on 8-bit BitVectors
+        let term = uint_lit(0b1000_0000, 8);
+        let shift_by_1 = uint_lit(1, 8);
+        let shift_by_7 = uint_lit(7, 8);
+
+        // 128 >> 1 should yield 64
+        assert_shift_op(|a, b| wrap_shift(">>", BvBinOp::Lshr, a, b), term.clone(), shift_by_1, Integer::from(0b0100_0000));
+
+        // 128 >> 7 should yield 1
+        assert_shift_op(|a, b| wrap_shift(">>", BvBinOp::Lshr, a, b), term.clone(), shift_by_7, Integer::from(0b0000_0001));
+
+        // Shifting by 0 should yield the same value
+        let shift_by_0 = uint_lit(0, 8);
+        assert_shift_op(|a, b| wrap_shift(">>", BvBinOp::Lshr, a, b), term.clone(), shift_by_0, Integer::from(0b1000_0000));
+    }
+
+    #[test]
+    fn test_wrap_shift_invalid_cases() {
+        // Test invalid cases, i.e., where the shift amount is greater than the bit width and type mismatch
+        let term = uint_lit(0b0000_0001, 8);
+        let invalid_shift = uint_lit(9, 8); // Shift amount greater than bit width (8)
+
+        // 1 << 9 should yield 0
+        assert_shift_op(|a, b| wrap_shift("<<", BvBinOp::Shl, a, b), term.clone(), invalid_shift, Integer::from(0b0000_0000));
+
+        // Test for type mismatch
+        let term_non_uint = leaf_term(Op::Const(Value::Bool(true)));
+        let result_type_mismatch = wrap_shift("<<", BvBinOp::Shl, PyTerm::new(Ty::Bool, term_non_uint), uint_lit(1, 8));
+        assert!(result_type_mismatch.is_err(), "Expected an error for type mismatch");
+    }
+
 }
