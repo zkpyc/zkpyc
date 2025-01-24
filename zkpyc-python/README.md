@@ -1,28 +1,33 @@
-# ZKPyToolkit: Python Zero-Knowledge Proof Toolkit
+# The ZKPyC Python Package
+
+> **Important:** This software is a proof-of-concept and has not been audited. It is highly experimental and subject to changes. Please use it with caution!
 
 ## Overview
 
-ZKPyToolkit is a comprehensive toolkit designed for creating and evaluating Zero-Knowledge Proofs (ZKPs) natively in Python. It offers a collection of tools for compiling Python functions, up to a subset of Python >=3.10, into Zero-Knowledge Proof gadgets in the Rank-1 Constraint System (R1CS). The toolkit supports direct evaluation of ZKPs through a selected list of ZKP backends.
+The ZKPyC Python package provides developers with a powerful and intuitive toolkit for generating Zero-Knowledge Proofs (ZKPs) directly from Python code. It is designed for a strict subset of Python and enables the creation of ZKPs while abstracting away the complexity of producing low-level ZKP gadgets and generating proofs.
 
 ## Features
 
-* Python Compatibility: ZKPyToolkit is compatible with Python 3.10.
+* **Python Integration**: Compatible with a strict subset of Python >= 3.10, as described in the ZKPyC documentation.
 
-* Compiler Integration: The ZKPyToolkit front-end relies on the [ZKPyC](https://github.com/lorenzorota/zkpyc) compiler, requiring a stable Rust compiler.
+* **Compiler Integration**: Uses the [ZKPyC](https://github.com/lorenzorota/zkpyc) compiler, requiring a stable version of Rust.
 
-* ZKP Backend Support: Backends receive ZKPs in the format specified by [ZkInterface](https://github.com/QED-it/zkinterface). The currently supported backends include:
+* **ZKP Backend Support**: Outputs proofs in the [ZkInterface](https://github.com/QED-it/zkinterface) format. The currently supported proof systems are:
 
-    Backend Implementation | Proving System | Primefield Modulus
-    | :---: | :---: | :---: |
-    | [Bellman](https://github.com/QED-it/zkinterface-bellman) | Groth16 | bls12_381 |
-    | [Dalek](https://github.com/QED-it/bulletproofs) | Bulletproofs | ristretto255 |
+    Backend | Proof System | Primefield Modulus
+    :---: | :---: | :---:
+    [Bellman](https://github.com/QED-it/zkinterface-bellman) | Groth16 | bls12_381
+    [Dalek](https://github.com/QED-it/bulletproofs) | Bulletproofs | ristretto255
 
-> **Important:** This software is a proof-of-concept and has not been audited. It is highly experimental and currently deemed unstable. Use with caution.
+* **Standard Library**: A standard library adapted from the [ZoKrates Standard Library](https://zokrates.github.io/toolbox/stdlib.html), which includes:
 
+  * **Hash Functions**: Pedersen, SHA256, Poseidon.
+  * **Elliptic Curve Operations**: For the Jubjub, Baby-Jubjub and Doppio curves in the Edwards form.
+  * **Utilities**: Packing, unpacking, casting, and multiplexing.
 
 ## Installation
 
-To install ZKPyToolkit, ensure that you have at least Rust compiler version 1.63.0 installed. Then, run the following command:
+To install the ZKPyC package, ensure that you have at least Rust compiler version 1.63.0 installed. Then, run the following command:
 
 ```bash
 pip install .
@@ -30,52 +35,23 @@ pip install .
 
 ## Usage
 
-ZKPyToolkit can only be used in _script_ mode as well as through the interactive mode provided by the IPython shell or JupyterLab. To use ZKPyToolkit, instantiate a ZKP instance from `zkpytoolkit.ZKP` with the required parameter `modulus` and optionally `backend` for the proving system, and `id` for bookkeeping. Only after instantiation can you import the ZKPyToolkit types. Here's an example:
+ZKPyC can be used in script mode or interactively through IPython or JupyterLab. To get started, instantiate a ZKP object from zkpyc.ZKP by providing the required parameter modulus. Optional parameters include backend for selecting a proving system and id for bookkeeping. Importing ZKP types is only possible after instantiating a ZKP object.
+
+Here's an example:
 
 ```python
-from zkpytoolkit import ZKP
-
+from zkpyc import ZKP
 zkp = ZKP(modulus="bls12_381", backend="groth16")
-
-from zkpytoolkit.types import Private, Public, Array, field
+from zkpyc.types import Private, Public, Array, field
 
 ...
 ```
 
-For a concrete example, you are refered to the `/notebooks/zkpytoolkit_demo.ipynb` notebook.
+For a concrete, interactive examples, visit the [demos](./demos) directory.
 
 ## Standard Library
 
-The standard library (stdlib), is a migration of the [ZoKrates Standard Library](https://zokrates.github.io/toolbox/stdlib.html) to Python, providing a range of Python-friendly ZKP gadgets, accessible via the submodule `zkpytoolkit.stdlib`. These consist of:
-
-* Commitment Schemes: `zkpytoolkit.stdlib.commitment`
-
-    |Scheme | Implementation |
-    | :---: | :---: |
-    | Pedersen | `zkpytoolkit.stdlib.commitment.pedersen` |
-    | SHA256 | `zkpytoolkit.stdlib.commitment.sha256` |
-
-* Hash Functions: `zkpytoolkit.stdlib.hashes`
-
-    | Hash Function | Compatible Curves | Implementations |
-    | :---: | :---: | :---: |
-    | Pedersen | bls12_381, bn256, ristretto255 | `zkpytoolkit.stdlib.hashes.pedersen.bls12_381`, `zkpytoolkit.stdlib.hashes.pedersen.bn256`, `zkpytoolkit.stdlib.hashes.pedersen.ristretto255` |
-    | SHA256 | all | `zkpytoolkit.stdlib.hashes.sha256` |
-    | Poseidon | bls12_381 | `zkpytoolkit.stdlib.hashes.poseidon` |
-
-* Elliptic Curve Cryptography: `zkpytoolkit.stdlib.ecc`
-
-    | Curve | Implementation |
-    | :---: | :---: |
-    | Edwards | `zkpytoolkit.stdlib.ecc.edwards` |
-
-* Utilities: `zkpytoolkit.stdlib.utils`
-
-    | Utility | Description | Implementation |
-    | :---: | :---: | :---: |
-    | Casting | From int to array of bool and vice versa | `zkpytoolkit.stdlib.utils.casts` |
-    | Multiplexing | Used in Pedersen hash | `zkpytoolkit.stdlib.utils.multiplexer` |
-    | Packing/Unpacking | Bool array to field and back | `zkpytoolkit.stdlib.utils.pack` |
+The standard library, `zkpyc.stdlib`, is a Python adaptation of the ZoKrates Standard Library, providing useful cryptographic functions and utilities that are compatible with ZKPyC. It is bundled with the ZKPyC compiler and maintained as part of the [zkpyc-stdlib](https://github.com/zkpyc/zkpyc/tree/main/zkpyc-stdlib) crate. For additional details, visit the linked repository.
 
 ## Contributing
 
@@ -87,9 +63,9 @@ This project is dual-licensed under the **Apache 2.0** and **MIT** licenses. See
 
 ## Acknowledgements
 
-This work is based upon the author's [master's thesis](https://fse.studenttheses.ub.rug.nl/33067/), which was written at the University of Groningen and TNO (Department of Applied Cryptography & Quantum Algorithms).
+This project is part of the overarching [ZKPyC repository](https://github.com/zkpyc/zkpyc).
 
 ## Issues and Contact
 
-- For reporting issues, please use [GitHub Issues](https://github.com/lorenzorota/zkpyc/issues).
-- For direct inquiries, you can contact me at **<lorenzo.rota@hotmail.com>**.
+* For reporting issues, please use [GitHub Issues](https://github.com/lorenzorota/zkpyc/issues).
+* For direct inquiries, you can contact me at **<lorenzo.rota@hotmail.com>**.
