@@ -47,7 +47,7 @@ from zkpyc.types import Private, Public, Array, field
 ...
 ```
 
-For a concrete, interactive examples, visit the [demos](./demos) directory.
+For concrete and interactive examples, visit the [demos](./demos) directory.
 
 ## Standard Library
 
