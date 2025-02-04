@@ -46,6 +46,9 @@ itertools = "0.10.0"
 dirs = { version = "3.0.1" }
 zkpyc-stdlib = "0.1.0-dev"
 
+[dev-dependencies]
+tempfile = "3.16.0"
+
 [features]
 default = ["r1cs", "bellman", "smt", "typed-arena", "petgraph", "curve25519-dalek"]
 r1cs = ["circ/r1cs", "bincode"]

@@ -4,7 +4,7 @@ use circ::ir::{opt::Opt, opt::opt, term::Computations};
 use circ_opt::CircOpt;
 use circ::cfg::cfg;
 use zkpyc_core::export::{write_constraints, prepare_prover_statements, prepare_verifier_statements};
-use zkpyc_core::front::{self, Mode::Proof, FrontEnd, python::Inputs};
+use zkpyc_core::front::{self, Mode::Proof, FrontEnd, python::Inputs, SourceInput};
 use zkpyc_core::utilities::r1cs::{ProverData, VerifierData};
 use zkpyc_core::utilities::proof::serialize_into_file;
 use zkpyc_core::utilities::scalar_fields::PrimeField;
@@ -162,7 +162,7 @@ fn cleanup(id: usize) -> PyResult<()> {
 }
 
 #[pyfunction]
-#[pyo3(signature = (f_name, input, id=0, module_name=String::from("__main__")))]
+#[pyo3(signature = (f_name, input, id=0, module_name=String::from("<__main__>")))]
 fn compile(
     _py: Python,
     f_name: String,
@@ -173,14 +173,22 @@ fn compile(
     // Define directory where ZKP data will be stored
     let workspace = create_folder(Path::new("."), &format!("cache_id_{}", id));
     
-    let file_path = Path::new(".").join(PathBuf::from(format!(".id_{}_{}_{}.py", id, module_name, f_name)));
-    let mut file = File::create(&file_path)?;
-    // Because of how the compiler is written, we need to temporarily
-    // store source code as a file.
-    file.write_all(input.as_bytes())?;
+    // let file_path = Path::new(".").join(PathBuf::from(format!(".id_{}_{}_{}.py", id, module_name, f_name)));
+    // let mut file = File::create(&file_path)?;
+    // // Because of how the compiler is written, we need to temporarily
+    // // store source code as a file.
+    // file.write_all(input.as_bytes())?;
+    //
+    // let inputs = front::python::Inputs {
+    //     file: file_path.clone(),
+    //     entry_point: f_name.clone(),
+    //     mode: Proof,
+    // };
 
-    let inputs = front::python::Inputs {
-        file: file_path.clone(),
+    let source = SourceInput::String(input, PathBuf::default(), module_name.clone());
+
+    let inputs = Inputs {
+        source,
         entry_point: f_name.clone(),
         mode: Proof,
     };
@@ -193,14 +201,16 @@ fn compile(
 
     // Remove temporary function definition file.
     let (pd, vd, constr_count) = match result {
-        Ok(Ok(res)) => {
-            remove_file(&file_path)?;
-            res
-        }
-        Ok(Err(err)) => {
-            remove_file(&file_path)?;
-            return Err(err);
-        }
+        // Ok(Ok(res)) => {
+        //     remove_file(&file_path)?;
+        //     res
+        // }
+        // Ok(Err(err)) => {
+        //     remove_file(&file_path)?;
+        //     return Err(err);
+        // }
+        Ok(Ok(res)) => res,
+        Ok(Err(err)) => return Err(err),
         Err(panic_payload) => {
             // Try to extract the panic message from the payload
             let panic_msg = if let Some(msg) = panic_payload.downcast_ref::<&str>() {
@@ -212,7 +222,6 @@ fn compile(
             };
 
             // Return the panic message as a Python error
-            // return Err(PyErr::new::<exc::RuntimeError, _>(_py, panic_msg));
             return Err(exceptions::PySyntaxError::new_err(panic_msg));
         }
     };

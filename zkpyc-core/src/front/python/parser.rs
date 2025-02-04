@@ -4,7 +4,7 @@ use rustpython_parser::{parse, ast::{self, text_size::TextRange, TextSize}, Mode
 use circ::circify::includer::Loader;
 
 use log::debug;
-use std::{collections::HashMap, fs, path::{Path, PathBuf}};
+use std::{collections::{HashMap, VecDeque}, fs, path::{Path, PathBuf}};
 use std::fs::File;
 use std::io::Read;
 use std::env::var_os;
@@ -12,6 +12,8 @@ use typed_arena::Arena;
 use regex::Regex;
 use dirs::data_dir;
 use zkpyc_stdlib::StdLib;
+
+use super::SourceInput;
 
 
 #[derive(Default)]
@@ -130,8 +132,53 @@ impl PyLoad {
     }
 
     /// Returns a map from file paths to parsed files.
-    pub fn load<P: AsRef<Path>>(&self, p: &P) -> HashMap<PathBuf, ast::Mod> {
-        self.recursive_load(p).unwrap()
+    pub fn load(&self, input: &SourceInput) -> HashMap<PathBuf, ast::Mod> {
+        match input {
+            SourceInput::Path(p) => self.recursive_load(p).unwrap(),
+            SourceInput::String(s, p, n) => self.load_from_string(s, &p, n).unwrap(),
+        }
+    }
+
+    /// Returns a map from file paths to parsed files, given a source string.
+    fn load_from_string(
+        &self,
+        source: &str,
+        working_dir: &Path,
+        source_name: &str,
+    ) -> Result<HashMap<PathBuf, ast::Mod>, <&PyLoad as Loader>::ParseError> {
+        let mut ast_map = HashMap::default();
+        let mut q = VecDeque::new();
+        let fake_path = working_dir.join(source_name);
+
+        let ast = self.parse_from_string(&source)?;
+        for c in self.includes(&ast, &fake_path) {
+            if !ast_map.contains_key(&c) {
+                q.push_back(c);
+            }
+        }
+        ast_map.insert(PathBuf::from(source_name), ast);
+
+        while let Some(p) = q.pop_front() {
+            if !ast_map.contains_key(&p) {
+                // Join the recursively loaded results with the ast_map
+                match self.recursive_load(&p) {
+                    Ok(mut sub_map) => ast_map.extend(sub_map.drain()),
+                    Err(err) => return Err(err),
+                }
+            }
+        }
+
+        Ok(ast_map)
+    }
+
+    /// Parses source string directly.
+    fn parse_from_string(&self, source: &str) -> Result<ast::Mod, <&PyLoad as Loader>::ParseError> {
+        let mut s = String::from(source);
+        filter_out_zk_ignore(&mut s);
+        let s = self.sources.alloc(s);
+        let ast = parse(&s, Mode::Module, "<embedded>");
+
+        ast.map_err(|e| e.into())
     }
 
     pub fn stdlib(&self) -> &PyGadgets {
@@ -142,7 +189,7 @@ impl PyLoad {
 impl <'a> Loader for &'a PyLoad {
     type ParseError = ParseError;
     type AST = ast::Mod;
-
+    
     fn parse<P: AsRef<Path>>(&self, p: &P) -> Result<Self::AST, Self::ParseError> {
         let mut s = String::new();
         File::open(p).unwrap().read_to_string(&mut s).unwrap();
@@ -218,4 +265,208 @@ pub fn filter_out_zk_ignore(s: &mut String) -> Vec<TextRange> {
 
     // Return the vector of TextRanges for filtered lines
     filtered_ranges
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use ast::{Expr, Stmt};
+    use fs::create_dir_all;
+    use tempfile::TempDir;
+
+    // Sample Python source code
+    static MAIN_SRC: &str = r#"
+from foo.bar import func
+
+def foobar():
+    return func("hello world")
+    "#;
+
+    static DEPENDENCY_1_SRC: &str = r#"
+from dummy import dummy_str
+
+def func(string):
+    return dummy_str + string.upper()
+    "#;
+
+    static DEPENDENCY_2_SRC: &str = r#"dummy_str = "Person says: ""#;
+
+    #[test]
+    fn test_load_source_code_with_dependencies() -> Result<(), std::io::Error> {
+        // Create temp paths
+        let temp_dir = TempDir::new()?;
+        let foo_bar_path = temp_dir.path().join("foo/bar.py");
+        let dummy_str_path = temp_dir.path().join("foo/dummy.py");
+    
+        create_dir_all(foo_bar_path.parent().unwrap())?;
+    
+        // Write dependency files (foo/bar.py and foo/dummy.py)
+        File::create(&foo_bar_path)?.write_all(DEPENDENCY_1_SRC.as_bytes())?;
+        File::create(&dummy_str_path)?.write_all(DEPENDENCY_2_SRC.as_bytes())?;
+    
+        // Load using MAIN_SRC as a string (instead of from a file)
+        let loader = PyLoad::new();
+        let asts = loader.load(
+            &SourceInput::String(MAIN_SRC.to_owned(), temp_dir.into_path(), "<embedded>".to_owned())
+        );
+    
+        // 1. Check that the correct number of files were loaded
+        assert_eq!(asts.len(), 3, "Expected three parsed ASTs (stdin + dependencies)");
+    
+        // 2. Check that the correct paths are stored in the hash map keys
+        assert!(asts.keys().any(|p| p == Path::new("<embedded>")), "Missing source string");
+        assert!(asts.keys().any(|p| p.ends_with("foo/bar.py")), "Missing foo/bar.py");
+        assert!(asts.keys().any(|p| p.ends_with("foo/dummy.py")), "Missing foo/dummy.py");
+    
+        Ok(())
+    }
+
+    #[test]
+    fn test_load_files_recursively() -> Result<(), std::io::Error> {
+        // Create temp paths
+        let temp_dir = TempDir::new()?;
+        let main_path = temp_dir.path().join("main.py");
+        let foo_bar_path = temp_dir.path().join("foo/bar.py");
+        let dummy_str_path = temp_dir.path().join("foo/dummy.py");
+
+        create_dir_all(foo_bar_path.parent().unwrap())?;
+
+        // Write files
+        File::create(&main_path)?.write_all(MAIN_SRC.as_bytes())?;
+        File::create(&foo_bar_path)?.write_all(DEPENDENCY_1_SRC.as_bytes())?;
+        File::create(&dummy_str_path)?.write_all(DEPENDENCY_2_SRC.as_bytes())?;
+
+        // Parse the files recursively
+        let loader = PyLoad::new();
+        let asts = loader.load(&SourceInput::Path(main_path));
+
+        // 1. Check that the three files were (recursively) loaded
+        assert_eq!(asts.len(), 3, "Expected three parsed ASTs");
+
+        // 2. Check that the correct paths are stored in the hash map keys
+        assert!(asts.keys().any(|p| p.ends_with("main.py")), "Missing main.py");
+        assert!(asts.keys().any(|p| p.ends_with("foo/bar.py")), "Missing foo/bar.py");
+        assert!(asts.keys().any(|p| p.ends_with("foo/dummy.py")), "Missing foo/dummy.py");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_correctness_loaded_main_ast() -> Result<(), std::io::Error> {
+        // Create temp paths
+        let temp_dir = TempDir::new()?;
+        let main_path = temp_dir.path().join("main.py");
+        let foo_bar_path = temp_dir.path().join("foo/bar.py");
+        let dummy_str_path = temp_dir.path().join("foo/dummy.py");
+
+        create_dir_all(foo_bar_path.parent().unwrap())?;
+
+        // Write files
+        File::create(&main_path)?.write_all(MAIN_SRC.as_bytes())?;
+        File::create(&foo_bar_path)?.write_all(DEPENDENCY_1_SRC.as_bytes())?;
+        File::create(&dummy_str_path)?.write_all(DEPENDENCY_2_SRC.as_bytes())?;
+
+        // Parse the files recursively
+        let loader = PyLoad::new();
+        let asts = loader.load(&SourceInput::Path(main_path));
+        let main_ast = asts.iter().find(|(p, _)| p.ends_with("main.py"))
+            .expect("AST for main.py not found")
+            .1;
+
+        // Check if AST is valid
+        let mut has_import = false;
+        let mut has_func = false;
+
+        for stmt in &main_ast.as_module().unwrap().body {
+            match stmt {
+                Stmt::ImportFrom(import_stmt) if import_stmt.module.as_deref() == Some("foo.bar") => has_import = true,
+                Stmt::FunctionDef(func) if func.name.as_str() == "foobar" => has_func = true,
+                _ => {}
+            }
+        }
+
+        assert!(has_import, "Module should contain an import statement");
+        assert!(has_func, "Module should contain a function definition statement");
+
+        Ok(())
+
+    }
+
+    #[test]
+    fn test_correctness_loaded_foo_bar_ast() -> Result<(), std::io::Error> {
+        // Create temp paths
+        let temp_dir = TempDir::new()?;
+        let foo_bar_path = temp_dir.path().join("foo/bar.py");
+        let dummy_str_path = temp_dir.path().join("foo/dummy.py");
+
+        create_dir_all(foo_bar_path.parent().unwrap())?;
+
+        // Write files
+        File::create(&foo_bar_path)?.write_all(DEPENDENCY_1_SRC.as_bytes())?;
+        File::create(&dummy_str_path)?.write_all(DEPENDENCY_2_SRC.as_bytes())?;
+
+        // Parse the files recursively
+        let loader = PyLoad::new();
+        let asts = loader.load(&SourceInput::Path(foo_bar_path));
+        let foo_bar_ast = asts.iter().find(|(p, _)| p.ends_with("foo/bar.py"))
+            .expect("AST for foo/bar.py not found")
+            .1;
+
+        // Check if AST is valid
+        let mut has_import = false;
+        let mut has_func = false;
+        let mut has_binop = false;
+
+        for stmt in &foo_bar_ast.as_module().unwrap().body {
+            match stmt {
+                Stmt::ImportFrom(import_stmt) if import_stmt.module.as_deref() == Some("dummy") => has_import = true,
+                Stmt::FunctionDef(func) if func.name.as_str() == "func" => {
+                    has_func = true;
+                    if let Some(Stmt::Return(ret_stmt)) = func.body.first() {
+                        if let Some(Expr::BinOp(_)) = ret_stmt.value.as_deref() {
+                            has_binop = true;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        assert!(has_import, "Module should contain an import statement");
+        assert!(has_func, "Module should contain a function definition statement");
+        assert!(has_binop, "Module should contain a binary operation expression");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_correctness_loaded_dummy_str_ast() -> Result<(), std::io::Error> {
+        // Create temp paths
+        let temp_dir = TempDir::new()?;
+        let dummy_str_path = temp_dir.path().join("foo/dummy.py");
+
+        create_dir_all(dummy_str_path.parent().unwrap())?;
+
+        // Write files
+        File::create(&dummy_str_path)?.write_all(DEPENDENCY_2_SRC.as_bytes())?;
+
+        // Parse the files recursively
+        let loader = PyLoad::new();
+        let asts = loader.load(&SourceInput::Path(dummy_str_path));
+        let dummy_str_ast = asts.iter().find(|(p, _)|p.ends_with("foo/dummy.py"))
+            .expect("AST for foo/dummy.py not found")
+            .1;
+
+        // Check if AST is valid
+        let mut has_str = false;
+        match &dummy_str_ast.as_module().unwrap().body[0] {
+            Stmt::Assign(assign_stmt) if &assign_stmt.targets[0].as_name_expr().unwrap().id == "dummy_str" => has_str = true,
+            _ => (),
+        }
+
+        assert!(has_str, "Module should contain a string expression");
+        Ok(())
+    }
+
 }
