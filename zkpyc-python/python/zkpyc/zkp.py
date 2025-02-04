@@ -36,7 +36,7 @@ class ZKP:
         # Concatenate the function definition and processed objects
         code = f"{obj_impl}{func_impl}"
         # print(code)
-        return compiler.compile(func_name, code, self.id, self.module)
+        return compiler.compile(func_name, code, self.id, f"<{self.module}>")
 
     def prepare_proof(self, func, *args, **kwargs):
         argument_names = func.__code__.co_varnames[:func.__code__.co_argcount]
@@ -50,7 +50,7 @@ class ZKP:
             **kwargs
         )
 
-        return compiler.setup_proof(func.__name__, lisp_code, self.id, self.module)
+        return compiler.setup_proof(func.__name__, lisp_code, self.id, f"<{self.module}>")
 
     def prepare_verification(self, func, *args, return_value=None, **kwargs):
         if return_value is None:
@@ -71,22 +71,22 @@ class ZKP:
             **kwargs,
         )
 
-        return compiler.setup_verification(func.__name__, lisp_code, self.id, self.module)
+        return compiler.setup_verification(func.__name__, lisp_code, self.id, f"<{self.module}>")
 
     def generate_crs(self, func):
         f_name = func.__name__
-        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, self.module, f_name)
-        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, self.module, f_name)
+        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
+        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
 
         with open(header_file, 'rb') as file:
             circuit = file.read()
         with open(constraints_file, 'rb') as file:
             constraints = file.read()
 
-        backend.setup(circuit, constraints, f_name, self.id, self.module, self.backend)
+        backend.setup(circuit, constraints, f_name, self.id, f"<{self.module}>", self.backend)
 
         # finally return the bytestring of the crs
-        crs_file = 'cache_id_{}/zkp_params_and_proofs/{}_{}_key.dat'.format(self.id, self.module, f_name)
+        crs_file = 'cache_id_{}/zkp_params_and_proofs/{}_{}_key.dat'.format(self.id, f"<{self.module}>", f_name)
         with open(crs_file, 'rb') as file:
             crs = file.read()
         return crs
@@ -94,7 +94,7 @@ class ZKP:
     def store_crs(self, func, crs_bytes):
         f_name = func.__name__
         crs_folder = './cache_id_{}/zkp_params_and_proofs'.format(self.id)
-        crs_file = crs_folder + '/{}_{}_key.dat'.format(self.module, f_name)
+        crs_file = crs_folder + '/{}_{}_key.dat'.format(f"<{self.module}>", f_name)
         if not os.path.exists(crs_folder):
             os.makedirs(crs_folder)
         with open(crs_file, 'wb') as file:
@@ -103,7 +103,7 @@ class ZKP:
     def store_proof(self, func, proof_bytes):
         f_name = func.__name__
         proof_folder = './cache_id_{}/zkp_params_and_proofs'.format(self.id)
-        proof_file = proof_folder + '/{}_{}_proof.dat'.format(self.module, f_name)
+        proof_file = proof_folder + '/{}_{}_proof.dat'.format(f"<{self.module}>", f_name)
         if not os.path.exists(proof_folder):
             os.makedirs(proof_folder)
         with open(proof_file, 'wb') as file:
@@ -111,9 +111,9 @@ class ZKP:
 
     def run_prover(self, func):
         f_name = func.__name__
-        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, self.module, f_name)
-        witness_file = 'cache_id_{}/zkif_export/witness_{}_{}.zkif'.format(self.id, self.module, f_name)
-        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, self.module, f_name)
+        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
+        witness_file = 'cache_id_{}/zkif_export/witness_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
+        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
 
         with open(header_file, 'rb') as file:
             circuit = file.read()
@@ -122,19 +122,19 @@ class ZKP:
         with open(constraints_file, 'rb') as file:
             constraints = file.read()
 
-        backend.prove(circuit, witness, constraints, f_name, self.id, self.module, self.backend)
+        backend.prove(circuit, witness, constraints, f_name, self.id, f"<{self.module}>", self.backend)
 
     def run_verifier(self, func):
         f_name = func.__name__
-        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, self.module, f_name)
-        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, self.module, f_name)
+        header_file = 'cache_id_{}/zkif_export/header_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
+        constraints_file = 'cache_id_{}/zkif_export/constraints_{}_{}.zkif'.format(self.id, f"<{self.module}>", f_name)
 
         with open(header_file, 'rb') as file:
             circuit = file.read()
         with open(constraints_file, 'rb') as file:
             constraints = file.read()
 
-        return backend.verify(circuit, constraints, f_name, self.id, self.module, self.backend)
+        return backend.verify(circuit, constraints, f_name, self.id, f"<{self.module}>", self.backend)
 
     def prove(self, func, *args, **kwargs):
         # first we obtain correct circuit and witness zkif files from python inputs
@@ -144,7 +144,7 @@ class ZKP:
 
         # finally return the bytestring of proof
         f_name = func.__name__
-        proof_file = 'cache_id_{}/zkp_params_and_proofs/{}_{}_proof.dat'.format(self.id, self.module, f_name)
+        proof_file = 'cache_id_{}/zkp_params_and_proofs/{}_{}_proof.dat'.format(self.id, f"<{self.module}>", f_name)
         with open(proof_file, 'rb') as file:
             proof = file.read()
         return proof
