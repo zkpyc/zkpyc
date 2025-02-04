@@ -4,7 +4,7 @@ mod parser;
 mod term;
 pub mod pyvisit;
 
-use super::{FrontEnd, Mode, proof::PROVER_ID};
+use super::{FrontEnd, Mode, proof::PROVER_ID, SourceInput};
 use circ::circify::{CircError, Circify, Loc, Val};
 use circ::ir::proof::ConstraintMetadata;
 use circ::cfg::cfg;
@@ -14,11 +14,11 @@ use rug::Integer;
 use rustpython_parser::ast::bigint::BigInt;
 use rustpython_parser::ast::{Ranged, text_size::TextRange, TextSize};
 use log::{debug, trace};
-use parser::filter_out_zk_ignore;
+use parser::{filter_out_zk_ignore};
 
 use std::cell::{Cell, RefCell};
 use std::fmt::Display;
-use std::fs;
+use std::{fs, io};
 use std::path::PathBuf;
 use std::collections::HashMap;
 use rustpython_parser::ast as ast;
@@ -31,9 +31,9 @@ const GC_INC: usize = 32;
 
 /// Inputs to the Python compiler
 pub struct Inputs {
-    /// The file to look for the entry point. e.g. the `main` function.
-    pub file: PathBuf,
-    // The entry point.
+    /// The source code, either a path or embedded input.
+    pub source: SourceInput,
+    // The entry point, e.g. the `main` function.
     pub entry_point: String,
     /// Mode to generate for (MPC or proof).
     pub mode: Mode,
@@ -43,17 +43,27 @@ pub struct PythonFE;
 
 impl FrontEnd for PythonFE {
     type Inputs = Inputs;
+
     fn gen(i: Inputs) -> Computations {
         debug!(
             "Starting Python front-end, field: {}",
             Sort::Field(cfg().field().clone())
         );
         let loader = parser::PyLoad::new();
-        let asts = loader.load(&i.file);
+
+        let asts = loader.load(&i.source);
         // need to figure out how to create python config
         let mut g = PyGen::new(asts, i.mode, loader.stdlib(), cfg().zsharp.isolate_asserts);
         g.visit_files(&i.entry_point);
-        g.file_stack_push(i.file);
+
+        match i.source {
+            SourceInput::Path(p) => g.file_stack_push(p.to_path_buf()),
+            SourceInput::String(source, _, name) => {
+                g.file_stack_push(PathBuf::from(name));
+                *g.source.borrow_mut() = Some(source);
+            }
+        }
+
         // no generics for now
         g.entry_fn(&i.entry_point);
         g.file_stack_pop();
@@ -70,11 +80,19 @@ impl FrontEnd for PythonFE {
 impl PythonFE {
     pub fn interpret(i: Inputs) -> PyTerm {
         let loader = parser::PyLoad::new();
-        let asts = loader.load(&i.file);
+        let asts = loader.load(&i.source);
         // like before, figure out cfg() zsharp part
         let mut g = PyGen::new(asts, i.mode, loader.stdlib(), cfg().zsharp.isolate_asserts);
         g.visit_files(&i.entry_point);
-        g.file_stack_push(i.file);
+
+        match i.source {
+            SourceInput::Path(p) => g.file_stack_push(p.to_path_buf()),
+            SourceInput::String(source, _, name) => {
+                g.file_stack_push(PathBuf::from(name));
+                *g.source.borrow_mut() = Some(source);
+            }
+        }
+
         g.const_entry_fn(&i.entry_point)
     }
 }
@@ -101,6 +119,7 @@ struct PyGen<'a> {
     gc_depth_estimate: Cell<usize>,
     assertions: RefCell<Vec<Term>>,
     isolate_asserts: bool,
+    source: RefCell<Option<String>>,
 }
 
 impl<'a> Drop for PyGen<'a> {
@@ -177,6 +196,7 @@ impl<'a> PyGen<'a> {
             gc_depth_estimate: Cell::new(2 * GC_INC),
             assertions: Default::default(),
             isolate_asserts,
+            source: RefCell::new(None),
         };
         this.circ
             .borrow()
@@ -193,8 +213,8 @@ impl<'a> PyGen<'a> {
     }
 
     fn err<E: Display>(&self, e: E, s: &TextRange) -> ! {
-        let range = range_before_filter(s, self.cur_path());
-        let line = line_from_range(range, self.cur_path());
+        let range = range_before_filter(s, &self.cur_source_contents());
+        let line = line_from_range(range, &self.cur_source_contents());
         
         // println!("ZKPyC Compilation Error -- Traceback:");
         // println!("\tFile {}, line {:?}, in {}", self.cur_path().canonicalize().unwrap().display(), line, self.curr_func.borrow());
@@ -206,10 +226,10 @@ impl<'a> PyGen<'a> {
             \tFile {}, line {:?}, in {}\n\
             {}\n\
             Error: {}",
-            self.cur_path().canonicalize().unwrap().display(),
+            normalize_path(&self.cur_path()).unwrap().display(),
             line,
             self.curr_func.borrow(),
-            range_to_string(s, self.cur_path()),
+            range_to_string(s, &self.cur_source_contents()),
             e
         );
     }
@@ -866,6 +886,25 @@ impl<'a> PyGen<'a> {
             .get(self.file_stack.borrow().last().unwrap())
     }
 
+    // Returns the source code of the currently loaded file
+    fn cur_source_contents(&self) -> String {
+        let p = self.cur_path();
+    
+        if let Some(path_str) = p.to_str() {
+            if path_str.starts_with('<') && path_str.ends_with('>') {
+                return self.source
+                    .borrow()
+                    .as_ref()
+                    .expect("Embedded source requested, but PyGen has no stored source.")
+                    .clone();
+            }
+        }
+    
+        std::fs::read_to_string(&p)
+            .unwrap_or_else(|_| panic!("Failed to read file: {}", normalize_path(&p).unwrap().display()))
+    }
+    
+
     fn deref_import(&self, s: &str) -> (PathBuf, String) {
         // import map is flattened, so we only need to chase through at most one indirection
         self.cur_import_map()
@@ -908,7 +947,7 @@ impl<'a> PyGen<'a> {
                 format!(
                     "Undefined const identifier {} in {}",
                     &i.id.as_str(),
-                    self.cur_path().canonicalize().unwrap().to_string_lossy()
+                    normalize_path(&self.cur_path()).unwrap().to_string_lossy()
                 )
             }),
             _ => match self
@@ -2763,45 +2802,45 @@ impl<'a> PyGen<'a> {
     }
 }
 
-fn range_to_string(s: &TextRange, path: PathBuf) -> String {
-    if let Ok(file_contents) = fs::read_to_string(&path) {
-        let mut corrected_contents = file_contents.clone();
-        filter_out_zk_ignore(&mut corrected_contents);
-        if s.start().to_usize() <= corrected_contents.len() && s.end().to_usize() <= corrected_contents.len() {
-            corrected_contents[s.start().to_usize()..s.end().to_usize()].to_string()
-        } else {
-            panic!("TextRange is out of bounds.")
-        }
+/// Canonicalize a path when possible, otherwise return path
+fn normalize_path(p: &PathBuf) -> Result<PathBuf, io::Error> {
+    if p.to_str()
+        .map(|s| s.starts_with('<') && s.ends_with('>'))
+        .unwrap_or(false)
+    {
+        Ok(p.clone())
     } else {
-        panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
+        p.canonicalize()
     }
 }
 
-fn range_before_filter(s: &TextRange, path: PathBuf) -> TextRange {
-    if let Ok(file_contents) = fs::read_to_string(&path) {
-        let mut corrected_contents = file_contents.clone();
-        let filtered_ranges = filter_out_zk_ignore(&mut corrected_contents);
-        
-        // Sum up all TextRange values in filtered_ranges up to s
-        let offset: TextSize = filtered_ranges
-            .iter()
-            .take_while(|&range| range.end() <= s.start())
-            .map(|range| range.len() + TextSize::from(1))
-            .sum();
+fn range_to_string(s: &TextRange, contents: &str) -> String {
+    let mut corrected_contents = contents.to_string();
+    filter_out_zk_ignore(&mut corrected_contents);
 
-        // Compute the updated s
-        s + offset
-    } else {
-        panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
+    if s.start().to_usize() > corrected_contents.len() || s.end().to_usize() > corrected_contents.len() {
+        panic!("TextRange is out of bounds.");
     }
+
+    corrected_contents[s.start().to_usize()..s.end().to_usize()].to_string()
 }
 
-fn line_from_range(range: TextRange, path: PathBuf) -> usize {
-    if let Ok(file_contents) = fs::read_to_string(&path) {
-        let start_offset = range.start();
-        let text_before_range = &file_contents[0..start_offset.into()];
-        text_before_range.chars().filter(|&c| c == '\n').count() + 1
-    } else {
-        panic!("Failed to read the file contents in {}", &path.canonicalize().unwrap().display())
-    }
+fn range_before_filter(s: &TextRange, contents: &str) -> TextRange {
+    let mut corrected_contents = contents.to_string();
+    let filtered_ranges = filter_out_zk_ignore(&mut corrected_contents);
+
+    let offset: TextSize = filtered_ranges
+        .iter()
+        .take_while(|&range| range.end() <= s.start())
+        .map(|range| range.len() + TextSize::from(1))
+        .sum();
+
+    s + offset
+}
+
+fn line_from_range(range: TextRange, contents: &str) -> usize {
+    let start_offset = range.start();
+    let text_before_range = &contents[0..start_offset.into()];
+
+    text_before_range.chars().filter(|&c| c == '\n').count() + 1
 }

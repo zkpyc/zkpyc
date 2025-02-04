@@ -7,8 +7,10 @@ use circ_opt::{CircOpt,
 };
 use circ_opt::clap;
 use zkpyc_core::export::setup::ZkInterface;
+use std::io::Read;
+use std::{env, io, path};
 use std::path::{Path, PathBuf};
-use zkpyc_core::front;
+use zkpyc_core::front::{self, SourceInput};
 use crate::front::{FrontEnd, Mode};
 #[cfg(feature = "r1cs")]
 use zkpyc_core::utilities::{trans::to_r1cs, opt::reduce_linearities};
@@ -48,7 +50,7 @@ struct Options {
     pub circ: CircOpt,
 
     #[arg(name = "PATH")]
-    path: PathBuf,
+    path: Option<PathBuf>, // If None, fall back to stdin
 
     #[command(flatten)]
     frontend: FrontendOptions,
@@ -103,7 +105,7 @@ fn main() {
         .init();
     let options = Options::parse();
     circ::cfg::set(&options.circ);
-    let path_buf = options.path.clone();
+    // let path_buf = options.path.unwrap();
     let mode = match options.backend {
         Backend::R1cs { .. } => match options.frontend.value_threshold {
             Some(t) => Mode::ProofOfHighValue(t),
@@ -111,8 +113,22 @@ fn main() {
         }
     };
 
+    let source = options.path
+    .as_ref()
+    .map(|path| SourceInput::Path(path.clone()))
+    .unwrap_or_else(|| {
+        let mut buffer = String::new();
+        let stdin = io::stdin();
+        let mut handle = stdin.lock();
+        handle.read_to_string(&mut buffer).expect("Failed to read from stdin");
+
+        let working_dir = env::current_dir().expect("Failed to get current working directory");
+
+        SourceInput::String(buffer, PathBuf::default(), "<stdin>".to_owned())
+    });
+
     let inputs = front::python::Inputs {
-        file: path_buf,
+        source,
         entry_point: String::from("main"),
         mode,
     };

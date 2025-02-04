@@ -6,6 +6,7 @@ use circ::ir::proof;
 use circ::ir::term::{Computations, PartyId};
 
 use std::fmt::{self, Display, Formatter};
+use std::path::{Path, PathBuf};
 
 /// The prover visibility
 pub const PROVER_VIS: Option<PartyId> = Some(proof::PROVER_ID);
@@ -19,6 +20,12 @@ pub trait FrontEnd {
 
     /// Compile the program to constraints
     fn gen(i: Self::Inputs) -> Computations;
+}
+
+/// Source code input type
+pub enum SourceInput {
+    Path(PathBuf),
+    String(String, PathBuf, String), // Source, working directory and identity
 }
 
 #[derive(Clone, Copy, Debug)]
