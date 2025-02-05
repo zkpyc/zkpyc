@@ -180,7 +180,46 @@ impl PyTerm {
             s => Err(format!("Not an array: {s}")),
         }
     }
-    
+
+    fn unwrap_class_ir(self) -> Result<FieldList<Term>, String> {
+        match &self.ty {
+            Ty::DataClass(_, map) => Ok(FieldList::new(
+                map.fields()
+                    .map(|(field, _)| {
+                        let (idx, _) = map
+                            .search(field)
+                            .expect(&format!("No field '{field}'"));
+                        (field.clone(), term![Op::Field(idx); self.term.clone()])
+                    })
+                    .collect(),
+            )),
+            s => Err(format!("{s} is not a class")),
+        }
+    }
+
+    pub fn unwrap_class(self) -> Result<FieldList<PyTerm>, String> {
+        match &self.ty {
+            Ty::DataClass(_, fields) => {
+                let fields = (*fields).clone();
+                Ok(FieldList::new(self
+                    .unwrap_class_ir()?
+                    .fields()
+                    .map(|(field, t)| {
+                        let f_ty = fields
+                            .search(field)
+                            .expect(&format!("No field '{field}'"))
+                            .1
+                            .clone();
+
+                        (field.clone(), PyTerm::new(f_ty, t.clone()))
+                    })
+                    .collect(),
+                ))
+            }
+            s => Err(format!("Not a DataClass: {s}")),
+        }
+    }
+
     pub fn new_array(v: Vec<PyTerm>) -> Result<PyTerm, String> {
         array(v)
     }
@@ -1086,23 +1125,31 @@ impl Embeddable for Python {
                 )
                 .unwrap()
             },
-            Ty::DataClass(n, fs) => Self::T::new_class(
-                n.clone(),
-                fs.fields()
-                    .map(|(f_name, f_ty)| {
-                        (
-                            f_name.clone(),
-                            self.declare_input(
-                                ctx,
-                                f_ty,
-                                field_name(&name, f_name),
-                                visibility,
-                                None,
-                            ),
-                        )
-                    })
-                    .collect(),
-            ),
+            Ty::DataClass(n, fs) => {
+                let ps = match precompute.map(|p| p.unwrap_class()) {
+                    Some(Ok(fl)) => fl,
+                    Some(Err(e)) => panic!("{}", e),
+                    None => FieldList::new(vec![]),
+                };
+
+                Self::T::new_class(
+                    n.clone(),
+                    fs.fields()
+                        .map(|(f_name, f_ty)| {
+                            (
+                                f_name.clone(),
+                                self.declare_input(
+                                    ctx,
+                                    f_ty,
+                                    field_name(&name, f_name),
+                                    visibility,
+                                    ps.search(f_name).map(|(_, p)| p.clone())
+                                ),
+                            )
+                        })
+                        .collect(),
+                )
+            },
         }
     }
 
